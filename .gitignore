@@ -1,0 +1,30 @@
+# Go build and test output
+/backend/bin/
+/backend/coverage/
+*.exe
+*.test
+coverage.out
+
+# Node.js dependencies and logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend build and test output
+/frontend/dist/
+/frontend/build/
+/frontend/coverage/
+/frontend/playwright-report/
+/frontend/test-results/
+/frontend/playwright/.cache/
+*.tsbuildinfo
+
+# Editor settings
+.vscode/
+
+# Local environment files
+.env
+.env.*
+!.env.example
