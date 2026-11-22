@@ -45,6 +45,7 @@ func routes(users userCreator, sessions authSessionStore, secureCookie bool) htt
 	router.Post("/api/v1/auth/register", registerUser(users, hashSlots))
 	router.Post("/api/v1/auth/login", loginUser(sessions, hashSlots, secureCookie))
 	router.Get("/api/v1/auth/me", requireSession(sessions, secureCookie, currentUser))
+	router.With(http.NewCrossOriginProtection().Handler).Post("/api/v1/auth/logout", logoutUser(sessions, secureCookie))
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := io.WriteString(w, "{\"status\":\"ok\"}\n"); err != nil {

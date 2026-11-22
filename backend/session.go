@@ -21,6 +21,7 @@ type sessionReader interface {
 type authSessionStore interface {
 	loginStore
 	sessionReader
+	sessionRevoker
 }
 
 func sessionCookieName(secure bool) string {
@@ -30,19 +31,34 @@ func sessionCookieName(secure bool) string {
 	return "dealforge_session"
 }
 
+func sessionCookie(secure bool) http.Cookie {
+	return http.Cookie{
+		Name: sessionCookieName(secure), Path: "/", HttpOnly: true, Secure: secure,
+		SameSite: http.SameSiteLaxMode,
+	}
+}
+
+func sessionCookieDigest(r *http.Request, cookieName string) ([sha256.Size]byte, bool) {
+	cookies := r.CookiesNamed(cookieName)
+	encoding := base64.RawURLEncoding.Strict()
+	if len(cookies) != 1 || len(cookies[0].Value) != encoding.EncodedLen(sessionTokenSize) {
+		return [sha256.Size]byte{}, false
+	}
+	token := cookies[0].Value
+	var decoded [sessionTokenSize]byte
+	if n, err := encoding.Decode(decoded[:], []byte(token)); err != nil || n != len(decoded) {
+		return [sha256.Size]byte{}, false
+	}
+	// Login hashes the encoded cookie value, so use those same bytes.
+	return sha256.Sum256([]byte(token)), true
+}
+
 func requireSession(store sessionReader, secureCookie bool, next func(http.ResponseWriter, *http.Request, publicUser)) http.HandlerFunc {
 	cookieName := sessionCookieName(secureCookie)
-	encoding := base64.RawURLEncoding.Strict()
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		cookies := r.CookiesNamed(cookieName)
-		if len(cookies) != 1 || len(cookies[0].Value) != encoding.EncodedLen(sessionTokenSize) {
-			writeAuthError(w, http.StatusUnauthorized, "invalid or missing session")
-			return
-		}
-		token := cookies[0].Value
-		var decoded [sessionTokenSize]byte
-		if n, err := encoding.Decode(decoded[:], []byte(token)); err != nil || n != len(decoded) {
+		digest, ok := sessionCookieDigest(r, cookieName)
+		if !ok {
 			writeAuthError(w, http.StatusUnauthorized, "invalid or missing session")
 			return
 		}
@@ -51,8 +67,6 @@ func requireSession(store sessionReader, secureCookie bool, next func(http.Respo
 			return
 		}
 
-		// Login hashes the encoded cookie value, so validation hashes those same bytes.
-		digest := sha256.Sum256([]byte(token))
 		user, err := store.GetActiveSessionUser(r.Context(), digest[:])
 		if errors.Is(err, pgx.ErrNoRows) {
 			writeAuthError(w, http.StatusUnauthorized, "invalid or missing session")

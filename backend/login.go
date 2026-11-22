@@ -25,7 +25,6 @@ type loginStore interface {
 }
 
 func loginUser(store loginStore, hashSlots chan struct{}, secureCookie bool) http.HandlerFunc {
-	cookieName := sessionCookieName(secureCookie)
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		var input struct {
@@ -66,11 +65,11 @@ func loginUser(store loginStore, hashSlots chan struct{}, secureCookie bool) htt
 			writeAuthError(w, http.StatusUnauthorized, "invalid username or password")
 			return
 		}
-		createLoginSession(w, r, store, user.ID, cookieName, secureCookie)
+		createLoginSession(w, r, store, user.ID, secureCookie)
 	}
 }
 
-func createLoginSession(w http.ResponseWriter, r *http.Request, store loginStore, userID pgtype.UUID, cookieName string, secureCookie bool) {
+func createLoginSession(w http.ResponseWriter, r *http.Request, store loginStore, userID pgtype.UUID, secureCookie bool) {
 	// Always create a fresh token. Incoming cookies cannot choose or promote a session.
 	var randomToken [sessionTokenSize]byte
 	if _, err := rand.Read(randomToken[:]); err != nil {
@@ -88,9 +87,10 @@ func createLoginSession(w http.ResponseWriter, r *http.Request, store loginStore
 		writeAuthError(w, http.StatusInternalServerError, "could not sign in")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{
-		Name: cookieName, Value: token, Path: "/", HttpOnly: true, Secure: secureCookie,
-		SameSite: http.SameSiteLaxMode, Expires: expiresAt, MaxAge: int(sessionLifetime / time.Second),
-	})
+	cookie := sessionCookie(secureCookie)
+	cookie.Value = token
+	cookie.Expires = expiresAt
+	cookie.MaxAge = int(sessionLifetime / time.Second)
+	http.SetCookie(w, &cookie)
 	w.WriteHeader(http.StatusNoContent)
 }

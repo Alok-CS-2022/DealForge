@@ -109,4 +109,36 @@ func TestLoginPersistsSessionInPostgres(t *testing.T) {
 		}
 		assertUnauthorizedSession(t, getCurrentUser(handler, cookies[0]))
 	})
+
+	t.Run("logout revokes only the current device", func(t *testing.T) {
+		loginDevice := func() *http.Cookie {
+			t.Helper()
+			login := postLogin(handler, string(payload), "", "")
+			cookies := login.Result().Cookies()
+			if login.Code != http.StatusNoContent || len(cookies) != 1 {
+				t.Fatalf("device login returned %d, want a 204 with a cookie", login.Code)
+			}
+			return cookies[0]
+		}
+		current, other := loginDevice(), loginDevice()
+		if current.Value == other.Value || getCurrentUser(handler, current).Code != http.StatusOK ||
+			getCurrentUser(handler, other).Code != http.StatusOK {
+			t.Fatal("expected two distinct active sessions")
+		}
+
+		assertLogoutClearsCookie(t, postLogout(handler, current), current)
+		assertUnauthorizedSession(t, getCurrentUser(handler, current))
+		// An already-revoked or unknown token and a missing cookie all get the same response.
+		assertLogoutClearsCookie(t, postLogout(handler, current), current)
+		assertLogoutClearsCookie(t, postLogout(handler, &http.Cookie{
+			Name: current.Name, Value: base64.RawURLEncoding.EncodeToString(unknownToken[:]),
+		}), current)
+		assertLogoutClearsCookie(t, postLogout(handler), current)
+
+		profile := getCurrentUser(handler, other)
+		if profile.Code != http.StatusOK {
+			t.Fatalf("other device returned %d after logout, want 200", profile.Code)
+		}
+		assertPublicProfile(t, profile, user.ID.String(), username, username+"@example.test", "Login integration test")
+	})
 }

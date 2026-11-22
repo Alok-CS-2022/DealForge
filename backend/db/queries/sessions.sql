@@ -9,3 +9,8 @@ JOIN dealforge.users AS u ON u.id = s.user_id
 WHERE s.token_hash = $1
   AND s.expires_at > now()
   AND s.revoked_at IS NULL;
+
+-- name: RevokeSession :exec
+UPDATE dealforge.sessions
+SET revoked_at = now(), updated_at = now()
+WHERE token_hash = $1 AND revoked_at IS NULL;

@@ -111,10 +111,15 @@ Send `GET /api/v1/auth/me` with the session cookie to retrieve the signed-in
 user's public profile. Missing, invalid, expired, and revoked sessions all
 return HTTP 401.
 
+Send `POST /api/v1/auth/logout` to revoke the session from the current cookie
+and clear that cookie. Logout leaves other sessions active and returns HTTP
+204 even if the cookie is missing, invalid, or already revoked. Browser
+requests must come from the same origin.
+
 With the local PostgreSQL settings exported and migrations applied, run
 `go test -count=1 -run TestLoginPersistsSessionInPostgres ./...` from
-`backend/` with `DEALFORGE_LOGIN_INTEGRATION=1` to verify session storage
-and validation. The test rolls back its fixtures.
+`backend/` with `DEALFORGE_LOGIN_INTEGRATION=1` to verify session storage,
+validation, and logout. The test rolls back its fixtures.
 
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its

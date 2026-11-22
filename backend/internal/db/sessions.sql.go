@@ -54,3 +54,14 @@ func (q *Queries) GetActiveSessionUser(ctx context.Context, tokenHash []byte) (G
 	)
 	return i, err
 }
+
+const revokeSession = `-- name: RevokeSession :exec
+UPDATE dealforge.sessions
+SET revoked_at = now(), updated_at = now()
+WHERE token_hash = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokeSession(ctx context.Context, tokenHash []byte) error {
+	_, err := q.db.Exec(ctx, revokeSession, tokenHash)
+	return err
+}

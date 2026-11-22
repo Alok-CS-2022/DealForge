@@ -44,6 +44,10 @@ func (s *loginStoreStub) GetActiveSessionUser(context.Context, []byte) (db.GetAc
 	return db.GetActiveSessionUserRow{}, pgx.ErrNoRows
 }
 
+func (s *loginStoreStub) RevokeSession(context.Context, []byte) error {
+	return nil
+}
+
 func loginTestUser(t *testing.T) db.GetLoginUserRow {
 	t.Helper()
 	var id pgtype.UUID
