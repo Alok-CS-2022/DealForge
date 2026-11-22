@@ -146,6 +146,15 @@ With the local PostgreSQL settings exported, set
 `go test -count=1 -run TestCreateCompanyInPostgres ./...` from `backend/`.
 The test rolls back its fixtures.
 
+## Company list
+
+An authenticated `GET /api/v1/companies` returns an array of
+`{"id":"…","name":"Example Company","role":"admin"}` objects. It includes
+only companies with a current membership for the signed-in user and
+excludes archived companies. Results are ordered by name, then UUID.
+If no active memberships match, the response is HTTP 200 with `[]`.
+The `DEALFORGE_COMPANY_INTEGRATION=1` tests also cover this endpoint.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.

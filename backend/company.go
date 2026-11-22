@@ -59,13 +59,14 @@ func createCompany(companies companyCreator) func(http.ResponseWriter, *http.Req
 	}
 }
 
-type postgresCompanyCreator struct {
+type postgresCompanyStore struct {
 	database interface {
+		db.DBTX
 		Begin(context.Context) (pgx.Tx, error)
 	}
 }
 
-func (c postgresCompanyCreator) CreateCompanyWithTeam(ctx context.Context, name string, creatorID pgtype.UUID) (createdCompany, error) {
+func (c postgresCompanyStore) CreateCompanyWithTeam(ctx context.Context, name string, creatorID pgtype.UUID) (createdCompany, error) {
 	var result createdCompany
 	err := pgx.BeginFunc(ctx, c.database, func(tx pgx.Tx) error {
 		queries := db.New(tx)

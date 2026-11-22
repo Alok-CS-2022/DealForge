@@ -20,6 +20,10 @@ func (f companyCreatorFunc) CreateCompanyWithTeam(ctx context.Context, name stri
 	return f(ctx, name, id)
 }
 
+func (f companyCreatorFunc) ListCompaniesForUser(context.Context, pgtype.UUID) ([]db.ListCompaniesForUserRow, error) {
+	return nil, errors.New("unexpected company list call")
+}
+
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
 	if err := creator.Scan("befaf392-110c-4db5-b582-f8e76660823d"); err != nil {
@@ -147,7 +151,7 @@ func (companyFixtureRow) Scan(dest ...any) error {
 func TestCreateCompanyRollsBackWhenManagerInsertFails(t *testing.T) {
 	failure := errors.New("team manager insert failed")
 	tx := &companyTxStub{managerError: failure}
-	store := postgresCompanyCreator{database: tx}
+	store := postgresCompanyStore{database: tx}
 	result, err := store.CreateCompanyWithTeam(t.Context(), "Fixture", pgtype.UUID{Valid: true})
 	if !errors.Is(err, failure) || result != (createdCompany{}) ||
 		tx.inserts != 2 || tx.execs != 2 || !tx.rolledBack || tx.committed {

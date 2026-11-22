@@ -16,7 +16,7 @@ import (
 func main() {
 	var users userCreator
 	var sessions authSessionStore
-	var companies companyCreator
+	var companies companyStore
 	if os.Getenv("PGDATABASE") != "" {
 		pool, err := pgxpool.New(context.Background(), "")
 		if err != nil {
@@ -26,7 +26,7 @@ func main() {
 		queries := db.New(pool)
 		users = queries
 		sessions = queries
-		companies = postgresCompanyCreator{database: pool}
+		companies = postgresCompanyStore{database: pool}
 	}
 
 	server := &http.Server{
@@ -40,7 +40,7 @@ func main() {
 	}
 }
 
-func routes(users userCreator, sessions authSessionStore, companies companyCreator, secureCookie bool) http.Handler {
+func routes(users userCreator, sessions authSessionStore, companies companyStore, secureCookie bool) http.Handler {
 	router := chi.NewRouter()
 	sameOrigin := http.NewCrossOriginProtection().Handler
 	// Share the Argon2id memory budget across both auth endpoints.
@@ -50,6 +50,7 @@ func routes(users userCreator, sessions authSessionStore, companies companyCreat
 	router.Get("/api/v1/auth/me", requireSession(sessions, secureCookie, currentUser))
 	router.With(sameOrigin).Post("/api/v1/auth/logout", logoutUser(sessions, secureCookie))
 	router.With(sameOrigin).Post("/api/v1/companies", requireSession(sessions, secureCookie, createCompany(companies)))
+	router.Get("/api/v1/companies", requireSession(sessions, secureCookie, listCompanies(companies)))
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := io.WriteString(w, "{\"status\":\"ok\"}\n"); err != nil {

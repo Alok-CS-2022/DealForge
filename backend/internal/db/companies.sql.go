@@ -83,3 +83,37 @@ func (q *Queries) CreateTeam(ctx context.Context, arg CreateTeamParams) (CreateT
 	err := row.Scan(&i.ID, &i.CompanyID, &i.Name)
 	return i, err
 }
+
+const listCompaniesForUser = `-- name: ListCompaniesForUser :many
+SELECT c.id, c.name, cm.role
+FROM dealforge.company_memberships AS cm
+JOIN dealforge.companies AS c ON c.id = cm.company_id
+WHERE cm.user_id = $1 AND c.archived_at IS NULL
+ORDER BY c.name, c.id
+`
+
+type ListCompaniesForUserRow struct {
+	ID   pgtype.UUID
+	Name string
+	Role string
+}
+
+func (q *Queries) ListCompaniesForUser(ctx context.Context, userID pgtype.UUID) ([]ListCompaniesForUserRow, error) {
+	rows, err := q.db.Query(ctx, listCompaniesForUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCompaniesForUserRow
+	for rows.Next() {
+		var i ListCompaniesForUserRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.Role); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

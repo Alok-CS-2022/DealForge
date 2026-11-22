@@ -20,46 +20,13 @@ import (
 )
 
 func TestCreateCompanyInPostgres(t *testing.T) {
-	if os.Getenv("DEALFORGE_COMPANY_INTEGRATION") != "1" {
-		t.Skip("set DEALFORGE_COMPANY_INTEGRATION=1 and the local PostgreSQL environment")
-	}
-	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
-	defer cancel()
-	conn, err := pgx.Connect(ctx, "")
-	if err != nil {
-		t.Fatal("could not connect to PostgreSQL for company integration")
-	}
-	defer conn.Close(context.Background())
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		t.Fatal("could not start company fixture transaction")
-	}
-	defer func() {
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		if err := tx.Rollback(cleanup); err != nil {
-			t.Error("could not roll back company fixtures")
-		}
-	}()
-
+	ctx, tx := companyFixtureTransaction(t)
 	queries := db.New(tx)
 	tag := strings.ToLower(rand.Text())[:18]
 	creatorID := createCompanyTestUser(t, ctx, queries, "it_company_"+tag)
 	outsiderID := createCompanyTestUser(t, ctx, queries, "it_other_"+tag)
-	var tokenBytes [sessionTokenSize]byte
-	if _, err := rand.Read(tokenBytes[:]); err != nil {
-		t.Fatal("could not generate a session fixture")
-	}
-	token := base64.RawURLEncoding.EncodeToString(tokenBytes[:])
-	digest := sha256.Sum256([]byte(token))
-	if err := queries.CreateSession(ctx, db.CreateSessionParams{
-		UserID: creatorID, TokenHash: digest[:],
-		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
-	}); err != nil {
-		t.Fatal("could not insert a session fixture")
-	}
-	cookie := &http.Cookie{Name: "__Host-dealforge_session", Value: token}
-	handler := routes(queries, queries, postgresCompanyCreator{database: tx}, true)
+	cookie := createCompanyTestSession(t, ctx, queries, creatorID)
+	handler := routes(queries, queries, postgresCompanyStore{database: tx}, true)
 
 	assertUnauthorizedSession(t, postCompany(handler, `{"name":"Unauthenticated `+tag+`"}`, nil))
 	if response := postCompany(handler, `{"name":"  "}`, cookie); response.Code != http.StatusBadRequest {
@@ -74,7 +41,7 @@ func TestCreateCompanyInPostgres(t *testing.T) {
 	}
 
 	var companyRole, teamRole string
-	err = tx.QueryRow(ctx, `
+	err := tx.QueryRow(ctx, `
 		SELECT cm.role, tm.role
 		FROM dealforge.companies c
 		JOIN dealforge.company_memberships cm ON cm.company_id = c.id
@@ -89,7 +56,7 @@ func TestCreateCompanyInPostgres(t *testing.T) {
 
 	t.Run("rolls back after a real final foreign key violation", func(t *testing.T) {
 		fault := &companyManagerFailure{Tx: tx, outsiderID: outsiderID}
-		failingHandler := routes(queries, queries, postgresCompanyCreator{database: fault}, true)
+		failingHandler := routes(queries, queries, postgresCompanyStore{database: fault}, true)
 		failedName := "Rollback " + tag
 		failed := postCompany(failingHandler, `{"name":"`+failedName+`"}`, cookie)
 		if failed.Code != http.StatusInternalServerError || failed.Body.String() != "{\"error\":\"could not create company\"}\n" ||
@@ -101,6 +68,49 @@ func TestCreateCompanyInPostgres(t *testing.T) {
 			t.Fatal("failed creation left a company behind or poisoned the fixture transaction")
 		}
 	})
+}
+
+func companyFixtureTransaction(t *testing.T) (context.Context, pgx.Tx) {
+	t.Helper()
+	if os.Getenv("DEALFORGE_COMPANY_INTEGRATION") != "1" {
+		t.Skip("set DEALFORGE_COMPANY_INTEGRATION=1 and the local PostgreSQL environment")
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+	t.Cleanup(cancel)
+	conn, err := pgx.Connect(ctx, "")
+	if err != nil {
+		t.Fatal("could not connect to PostgreSQL for company integration")
+	}
+	t.Cleanup(func() { _ = conn.Close(context.Background()) })
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		t.Fatal("could not start company fixture transaction")
+	}
+	t.Cleanup(func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := tx.Rollback(cleanup); err != nil {
+			t.Error("could not roll back company fixtures")
+		}
+	})
+	return ctx, tx
+}
+
+func createCompanyTestSession(t *testing.T, ctx context.Context, queries *db.Queries, userID pgtype.UUID) *http.Cookie {
+	t.Helper()
+	var tokenBytes [sessionTokenSize]byte
+	if _, err := rand.Read(tokenBytes[:]); err != nil {
+		t.Fatal("could not generate a session fixture")
+	}
+	token := base64.RawURLEncoding.EncodeToString(tokenBytes[:])
+	digest := sha256.Sum256([]byte(token))
+	if err := queries.CreateSession(ctx, db.CreateSessionParams{
+		UserID: userID, TokenHash: digest[:],
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
+	}); err != nil {
+		t.Fatal("could not insert a session fixture")
+	}
+	return &http.Cookie{Name: "__Host-dealforge_session", Value: token}
 }
 
 func createCompanyTestUser(t *testing.T, ctx context.Context, queries *db.Queries, username string) pgtype.UUID {
