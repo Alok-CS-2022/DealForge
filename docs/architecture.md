@@ -12,6 +12,9 @@ DealForge is a CRM for tracking customers and sales deals.
   foreign keys enforce company and team scope for references and assignments.
   The backend must also scope every read and write to the authorized company
   or team. Archiving sets a timestamp and preserves dependent records.
+  Contact creation locks the active company first, then rechecks and locks
+  the caller's membership in a separate statement before inserting in the
+  same transaction. This follows the lock order defined for membership changes.
 - Company admins and team managers are distinct roles. The Go service must
   prevent the last company admin and the last team manager from leaving,
   being removed, or being demoted until a replacement is promoted. In a

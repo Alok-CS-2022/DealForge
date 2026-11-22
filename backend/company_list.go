@@ -16,6 +16,7 @@ type companyLister interface {
 type companyStore interface {
 	companyCreator
 	companyLister
+	contactCreator
 }
 
 type companyMembership struct {

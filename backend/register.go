@@ -44,8 +44,7 @@ func (input *registrationInput) normalizeAndValidate() string {
 	if !usernamePattern.MatchString(input.Username) {
 		return "username must be 3-32 characters, start with a letter or digit, and contain only letters, digits, dots, underscores, or hyphens"
 	}
-	address, err := mail.ParseAddress(input.Email)
-	if err != nil || len(input.Email) > 254 || address.Address != input.Email {
+	if !validEmail(input.Email) {
 		return "email must be a valid address of at most 254 bytes"
 	}
 	if input.DisplayName == "" || utf8.RuneCountInString(input.DisplayName) > 100 || strings.ContainsRune(input.DisplayName, 0) {
@@ -55,6 +54,14 @@ func (input *registrationInput) normalizeAndValidate() string {
 		return "password must contain at least 15 characters and at most 256 bytes"
 	}
 	return ""
+}
+
+func validEmail(email string) bool {
+	if len(email) > 254 {
+		return false
+	}
+	address, err := mail.ParseAddress(email)
+	return err == nil && address.Address == email
 }
 
 func registerUser(users userCreator, hashSlots chan struct{}) http.HandlerFunc {

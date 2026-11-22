@@ -168,6 +168,30 @@ listing companies. The browser uses this check to keep company preferences
 scoped to the account it is displaying.
 The `DEALFORGE_COMPANY_INTEGRATION=1` tests also cover this endpoint.
 
+## Contact creation
+
+Send an authenticated `POST /api/v1/companies/{companyID}/contacts` with
+`{"name":"Ada Lovelace","email":"ada@example.test","phone":"+44 20 1234","company_name":"Example Company"}`.
+Both admins and members can create contacts in an active company. Names
+are trimmed and must contain 1–100 characters. Email is trimmed, lowercased,
+and validated as a bare address of at most 254 bytes. Optional `phone`
+and `company_name` are trimmed, accept up to 50 and 100 characters
+respectively, and are stored as null when blank or omitted.
+
+HTTP 201 returns `id`, `company_id`, `name`, `email`, `phone`,
+`company_name`, `assignee_user_id`, `created_at`, and `updated_at`.
+New contacts have a null assignee. Invalid input returns 400, invalid
+sessions return 401, and blocked cross-origin requests return 403.
+Missing, archived, and inaccessible companies all return 404.
+A duplicate email within the company returns 409 regardless of case.
+An optional `X-DealForge-Expected-User-ID` header returns 412 if it
+disagrees with the authenticated session.
+
+Run `go test -count=1 -run TestCreateContactInPostgres ./...` from
+`backend/` with the local PostgreSQL settings and
+`DEALFORGE_COMPANY_INTEGRATION=1` to test against PostgreSQL with
+transaction-scoped fixtures.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.
