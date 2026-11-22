@@ -107,9 +107,14 @@ expiry. The cookie is Secure by default. Only for local HTTP development,
 set `DEALFORGE_INSECURE_DEV_COOKIE=true` before starting the backend.
 Production must use HTTPS and leave that override unset.
 
+Send `GET /api/v1/auth/me` with the session cookie to retrieve the signed-in
+user's public profile. Missing, invalid, expired, and revoked sessions all
+return HTTP 401.
+
 With the local PostgreSQL settings exported and migrations applied, run
-`TestLoginPersistsSessionInPostgres` with `DEALFORGE_LOGIN_INTEGRATION=1`
-to verify session storage. The test rolls back its fixture user and session.
+`go test -count=1 -run TestLoginPersistsSessionInPostgres ./...` from
+`backend/` with `DEALFORGE_LOGIN_INTEGRATION=1` to verify session storage
+and validation. The test rolls back its fixtures.
 
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its

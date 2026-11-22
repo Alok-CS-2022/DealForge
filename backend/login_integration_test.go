@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -57,7 +58,8 @@ func TestLoginPersistsSessionInPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal("could not encode login input")
 	}
-	response := postLogin(routes(queries, queries, true), string(payload), "", "")
+	handler := routes(queries, queries, true)
+	response := postLogin(handler, string(payload), "", "")
 	cookies := response.Result().Cookies()
 	if response.Code != http.StatusNoContent || len(cookies) != 1 {
 		t.Fatalf("expected a successful PostgreSQL-backed login, got %d", response.Code)
@@ -73,4 +75,38 @@ func TestLoginPersistsSessionInPostgres(t *testing.T) {
 	if !bytes.Equal(storedHash, want[:]) || !expiresAt.Equal(cookies[0].Expires) {
 		t.Fatal("stored session did not match the cookie digest and expiry")
 	}
+
+	profile := getCurrentUser(handler, cookies[0])
+	if profile.Code != http.StatusOK {
+		t.Fatalf("active session returned %d, want 200", profile.Code)
+	}
+	assertPublicProfile(t, profile, user.ID.String(), username, username+"@example.test", "Login integration test")
+	assertUnauthorizedSession(t, getCurrentUser(handler))
+	var unknownToken [sessionTokenSize]byte
+	if _, err := rand.Read(unknownToken[:]); err != nil {
+		t.Fatal("could not generate an unknown token")
+	}
+	assertUnauthorizedSession(t, getCurrentUser(handler, &http.Cookie{
+		Name: cookies[0].Name, Value: base64.RawURLEncoding.EncodeToString(unknownToken[:]),
+	}))
+
+	t.Run("expired", func(t *testing.T) {
+		// Keep expires_at after created_at while testing equality with PostgreSQL's now().
+		_, err := tx.Exec(ctx, `UPDATE dealforge.sessions
+			SET created_at = now() - interval '1 hour', expires_at = now()
+			WHERE token_hash = $1`, want[:])
+		if err != nil {
+			t.Fatal("could not expire the fixture session")
+		}
+		assertUnauthorizedSession(t, getCurrentUser(handler, cookies[0]))
+	})
+	t.Run("revoked", func(t *testing.T) {
+		_, err := tx.Exec(ctx, `UPDATE dealforge.sessions
+			SET expires_at = now() + interval '1 hour', revoked_at = now()
+			WHERE token_hash = $1`, want[:])
+		if err != nil {
+			t.Fatal("could not revoke the fixture session")
+		}
+		assertUnauthorizedSession(t, getCurrentUser(handler, cookies[0]))
+	})
 }

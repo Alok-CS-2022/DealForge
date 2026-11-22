@@ -40,6 +40,10 @@ func (s *loginStoreStub) CreateSession(_ context.Context, session db.CreateSessi
 	return s.insertErr
 }
 
+func (s *loginStoreStub) GetActiveSessionUser(context.Context, []byte) (db.GetActiveSessionUserRow, error) {
+	return db.GetActiveSessionUserRow{}, pgx.ErrNoRows
+}
+
 func loginTestUser(t *testing.T) db.GetLoginUserRow {
 	t.Helper()
 	var id pgtype.UUID

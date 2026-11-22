@@ -15,7 +15,7 @@ import (
 
 func main() {
 	var users userCreator
-	var sessions loginStore
+	var sessions authSessionStore
 	if os.Getenv("PGDATABASE") != "" {
 		pool, err := pgxpool.New(context.Background(), "")
 		if err != nil {
@@ -38,12 +38,13 @@ func main() {
 	}
 }
 
-func routes(users userCreator, sessions loginStore, secureCookie bool) http.Handler {
+func routes(users userCreator, sessions authSessionStore, secureCookie bool) http.Handler {
 	router := chi.NewRouter()
 	// Share the Argon2id memory budget across both auth endpoints.
 	hashSlots := make(chan struct{}, 2)
 	router.Post("/api/v1/auth/register", registerUser(users, hashSlots))
 	router.Post("/api/v1/auth/login", loginUser(sessions, hashSlots, secureCookie))
+	router.Get("/api/v1/auth/me", requireSession(sessions, secureCookie, currentUser))
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := io.WriteString(w, "{\"status\":\"ok\"}\n"); err != nil {

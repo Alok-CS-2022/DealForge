@@ -27,7 +27,7 @@ type registrationInput struct {
 	Password    string `json:"password"`
 }
 
-type registeredUser struct {
+type publicUser struct {
 	ID          string `json:"id"`
 	Username    string `json:"username"`
 	Email       string `json:"email"`
@@ -104,7 +104,7 @@ func registerUser(users userCreator, hashSlots chan struct{}) http.HandlerFunc {
 			return
 		}
 
-		writeAuthJSON(w, http.StatusCreated, registeredUser{
+		writeAuthJSON(w, http.StatusCreated, publicUser{
 			ID: user.ID.String(), Username: user.Username, Email: user.Email, DisplayName: user.DisplayName,
 		})
 	}

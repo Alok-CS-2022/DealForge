@@ -26,3 +26,31 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	_, err := q.db.Exec(ctx, createSession, arg.UserID, arg.TokenHash, arg.ExpiresAt)
 	return err
 }
+
+const getActiveSessionUser = `-- name: GetActiveSessionUser :one
+SELECT u.id, u.username, u.email, u.display_name
+FROM dealforge.sessions AS s
+JOIN dealforge.users AS u ON u.id = s.user_id
+WHERE s.token_hash = $1
+  AND s.expires_at > now()
+  AND s.revoked_at IS NULL
+`
+
+type GetActiveSessionUserRow struct {
+	ID          pgtype.UUID
+	Username    string
+	Email       string
+	DisplayName string
+}
+
+func (q *Queries) GetActiveSessionUser(ctx context.Context, tokenHash []byte) (GetActiveSessionUserRow, error) {
+	row := q.db.QueryRow(ctx, getActiveSessionUser, tokenHash)
+	var i GetActiveSessionUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.DisplayName,
+	)
+	return i, err
+}

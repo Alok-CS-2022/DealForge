@@ -25,10 +25,7 @@ type loginStore interface {
 }
 
 func loginUser(store loginStore, hashSlots chan struct{}, secureCookie bool) http.HandlerFunc {
-	cookieName := "dealforge_session"
-	if secureCookie {
-		cookieName = "__Host-" + cookieName
-	}
+	cookieName := sessionCookieName(secureCookie)
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		var input struct {
@@ -75,7 +72,7 @@ func loginUser(store loginStore, hashSlots chan struct{}, secureCookie bool) htt
 
 func createLoginSession(w http.ResponseWriter, r *http.Request, store loginStore, userID pgtype.UUID, cookieName string, secureCookie bool) {
 	// Always create a fresh token. Incoming cookies cannot choose or promote a session.
-	var randomToken [32]byte
+	var randomToken [sessionTokenSize]byte
 	if _, err := rand.Read(randomToken[:]); err != nil {
 		log.Print("login session token generation failed")
 		writeAuthError(w, http.StatusInternalServerError, "could not sign in")
