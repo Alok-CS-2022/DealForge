@@ -1,4 +1,5 @@
 import { type FormEvent, useRef, useState } from 'react';
+import { AuthPage } from './auth-page';
 
 type RegistrationInput = {
   username: string;
@@ -96,64 +97,58 @@ export function Registration() {
   }
 
   return (
-    <main className="registration">
-      <div className="registration-shell">
-        <div className="wordmark">
-          <span className="wordmark-symbol" aria-hidden="true">D</span>
-          <span>DealForge</span>
+    <AuthPage>
+      {created ? (
+        <div className="confirmation">
+          <span className="confirmation-mark" aria-hidden="true">✓</span>
+          <h1 id="auth-title" tabIndex={-1} ref={(heading) => heading?.focus()}>
+            Account created
+          </h1>
+          <p>Log in with your username and password to get started.</p>
+          <p className="auth-link"><a href="/login">Log in</a></p>
         </div>
-        <section className="registration-card" aria-labelledby="registration-title">
-          {created ? (
-            <div className="confirmation">
-              <span className="confirmation-mark" aria-hidden="true">✓</span>
-              <h1 id="registration-title" tabIndex={-1} ref={(heading) => heading?.focus()}>
-                Account created
-              </h1>
-              <p>Log in with your username and password to get started.</p>
-            </div>
-          ) : (
-            <>
-              <h1 id="registration-title">Create an account</h1>
-              <p className="intro">Enter your details to set up your DealForge account.</p>
-              <form method="post" noValidate onSubmit={submit} aria-busy={submitting}>
-                {error && <p className="form-error" role="alert">{error}</p>}
-                <fieldset disabled={submitting} aria-label="Account details">
-                  <div className="field">
-                    <label htmlFor="display_name">Display name</label>
-                    <input id="display_name" name="display_name" autoComplete="nickname" required
-                      aria-invalid={Boolean(fieldErrors.display_name)}
-                      aria-describedby={fieldErrors.display_name ? 'display-name-error' : undefined} />
-                    {fieldErrors.display_name && <p id="display-name-error" className="field-error">{fieldErrors.display_name}</p>}
-                  </div>
-                  <div className="field">
-                    <label htmlFor="username">Username</label>
-                    <input id="username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false}
-                      required aria-invalid={Boolean(fieldErrors.username)}
-                      aria-describedby={fieldErrors.username ? 'username-error' : undefined} />
-                    {fieldErrors.username && <p id="username-error" className="field-error">{fieldErrors.username}</p>}
-                  </div>
-                  <div className="field">
-                    <label htmlFor="email">Email address</label>
-                    <input id="email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
-                      required aria-invalid={Boolean(fieldErrors.email)}
-                      aria-describedby={fieldErrors.email ? 'email-error' : undefined} />
-                    {fieldErrors.email && <p id="email-error" className="field-error">{fieldErrors.email}</p>}
-                  </div>
-                  <div className="field">
-                    <label htmlFor="password">Password</label>
-                    <input id="password" name="password" type="password" autoComplete="new-password" required
-                      aria-invalid={Boolean(fieldErrors.password)} aria-describedby="password-help" />
-                    <p id="password-help" className={fieldErrors.password ? 'field-error' : 'field-hint'}>
-                      {fieldErrors.password ?? 'Use at least 15 characters.'}
-                    </p>
-                  </div>
-                  <button type="submit">{submitting ? 'Creating account…' : 'Create account'}</button>
-                </fieldset>
-              </form>
-            </>
-          )}
-        </section>
-      </div>
-    </main>
+      ) : (
+        <>
+          <h1 id="auth-title">Create an account</h1>
+          <p className="intro">Enter your details to set up your DealForge account.</p>
+          <form method="post" noValidate onSubmit={submit} aria-busy={submitting}>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <fieldset disabled={submitting} aria-label="Account details">
+              <div className="field">
+                <label htmlFor="display_name">Display name</label>
+                <input id="display_name" name="display_name" autoComplete="nickname" required
+                  aria-invalid={Boolean(fieldErrors.display_name)}
+                  aria-describedby={fieldErrors.display_name ? 'display-name-error' : undefined} />
+                {fieldErrors.display_name && <p id="display-name-error" className="field-error">{fieldErrors.display_name}</p>}
+              </div>
+              <div className="field">
+                <label htmlFor="username">Username</label>
+                <input id="username" name="username" autoComplete="username" autoCapitalize="none" spellCheck={false}
+                  required aria-invalid={Boolean(fieldErrors.username)}
+                  aria-describedby={fieldErrors.username ? 'username-error' : undefined} />
+                {fieldErrors.username && <p id="username-error" className="field-error">{fieldErrors.username}</p>}
+              </div>
+              <div className="field">
+                <label htmlFor="email">Email address</label>
+                <input id="email" name="email" type="email" autoComplete="email" autoCapitalize="none" spellCheck={false}
+                  required aria-invalid={Boolean(fieldErrors.email)}
+                  aria-describedby={fieldErrors.email ? 'email-error' : undefined} />
+                {fieldErrors.email && <p id="email-error" className="field-error">{fieldErrors.email}</p>}
+              </div>
+              <div className="field">
+                <label htmlFor="password">Password</label>
+                <input id="password" name="password" type="password" autoComplete="new-password" required
+                  aria-invalid={Boolean(fieldErrors.password)} aria-describedby="password-help" />
+                <p id="password-help" className={fieldErrors.password ? 'field-error' : 'field-hint'}>
+                  {fieldErrors.password ?? 'Use at least 15 characters.'}
+                </p>
+              </div>
+              <button type="submit">{submitting ? 'Creating account…' : 'Create account'}</button>
+            </fieldset>
+          </form>
+          <p className="auth-link">Already have an account? <a href="/login">Log in</a></p>
+        </>
+      )}
+    </AuthPage>
   );
 }
