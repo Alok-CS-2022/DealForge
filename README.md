@@ -72,10 +72,13 @@ $env:PGDATABASE = 'dealforge'
 $env:PGUSER = Read-Host 'PostgreSQL role'
 createdb --maintenance-db=postgres $env:PGDATABASE
 psql -X -v ON_ERROR_STOP=1 --single-transaction -f db/migrations/000001_create_dealforge_schema.sql
+psql -X -v ON_ERROR_STOP=1 --single-transaction -f db/migrations/000002_create_crm_tables.up.sql
 ```
 
-The first migration creates the application schema. Keep subsequent SQL
-migrations numbered and apply them in order. To validate the SQL and regenerate
+Migration 000001 creates the application schema. Migration 000002 creates the
+CRM tables and should be applied once. Its down migration drops those tables and
+their data. Use a disposable database to test rollback. Keep migrations
+numbered and apply them in order. To validate the SQL and regenerate
 the typed pgx query code without a database connection, run this from `backend/`:
 
 ```powershell

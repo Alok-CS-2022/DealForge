@@ -1,0 +1,12 @@
+DROP TABLE dealforge.sessions;
+DROP TABLE dealforge.invitations;
+DROP TABLE dealforge.activity_logs;
+DROP FUNCTION dealforge.reject_activity_log_mutation();
+DROP TABLE dealforge.tasks;
+DROP TABLE dealforge.deals;
+DROP TABLE dealforge.contacts;
+DROP TABLE dealforge.team_memberships;
+DROP TABLE dealforge.teams;
+DROP TABLE dealforge.company_memberships;
+DROP TABLE dealforge.companies;
+DROP TABLE dealforge.users;

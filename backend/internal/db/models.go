@@ -3,3 +3,127 @@
 //   sqlc v1.31.1
 
 package db
+
+import (
+	"github.com/jackc/pgx/v5/pgtype"
+)
+
+type DealforgeActivityLog struct {
+	ID          pgtype.UUID
+	CompanyID   pgtype.UUID
+	ActorUserID pgtype.UUID
+	Action      string
+	EntityType  string
+	EntityID    pgtype.UUID
+	Changes     []byte
+	CreatedAt   pgtype.Timestamptz
+}
+
+type DealforgeCompany struct {
+	ID         pgtype.UUID
+	Name       string
+	ArchivedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type DealforgeCompanyMembership struct {
+	ID        pgtype.UUID
+	CompanyID pgtype.UUID
+	UserID    pgtype.UUID
+	Role      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type DealforgeContact struct {
+	ID             pgtype.UUID
+	CompanyID      pgtype.UUID
+	Name           string
+	Email          string
+	Phone          pgtype.Text
+	CompanyName    pgtype.Text
+	AssigneeUserID pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+type DealforgeDeal struct {
+	ID                pgtype.UUID
+	CompanyID         pgtype.UUID
+	TeamID            pgtype.UUID
+	ContactID         pgtype.UUID
+	Title             string
+	Stage             string
+	Amount            pgtype.Numeric
+	Currency          string
+	ExpectedCloseDate pgtype.Date
+	LostReason        pgtype.Text
+	AssigneeUserID    pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+type DealforgeInvitation struct {
+	ID                pgtype.UUID
+	TeamID            pgtype.UUID
+	InviteeUserID     pgtype.UUID
+	AddressedUsername string
+	InvitedByUserID   pgtype.UUID
+	Status            string
+	ResolvedAt        pgtype.Timestamptz
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+type DealforgeSession struct {
+	ID        pgtype.UUID
+	UserID    pgtype.UUID
+	TokenHash []byte
+	ExpiresAt pgtype.Timestamptz
+	RevokedAt pgtype.Timestamptz
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type DealforgeTask struct {
+	ID             pgtype.UUID
+	DealID         pgtype.UUID
+	TeamID         pgtype.UUID
+	Title          string
+	DueDate        pgtype.Date
+	Status         string
+	CompletedAt    pgtype.Timestamptz
+	AssigneeUserID pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+type DealforgeTeam struct {
+	ID         pgtype.UUID
+	CompanyID  pgtype.UUID
+	Name       string
+	ArchivedAt pgtype.Timestamptz
+	CreatedAt  pgtype.Timestamptz
+	UpdatedAt  pgtype.Timestamptz
+}
+
+type DealforgeTeamMembership struct {
+	ID        pgtype.UUID
+	CompanyID pgtype.UUID
+	TeamID    pgtype.UUID
+	UserID    pgtype.UUID
+	Role      string
+	CreatedAt pgtype.Timestamptz
+	UpdatedAt pgtype.Timestamptz
+}
+
+type DealforgeUser struct {
+	ID           pgtype.UUID
+	Username     string
+	Email        string
+	DisplayName  string
+	PasswordHash string
+	CreatedAt    pgtype.Timestamptz
+	UpdatedAt    pgtype.Timestamptz
+}
