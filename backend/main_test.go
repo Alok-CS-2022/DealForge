@@ -9,7 +9,7 @@ import (
 
 func TestHealth(t *testing.T) {
 	response := httptest.NewRecorder()
-	routes().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
+	routes(nil).ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/health", nil))
 
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)

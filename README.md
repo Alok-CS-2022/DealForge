@@ -57,9 +57,10 @@ Playwright starts its own Vite server on port 4173 for the smoke test.
 ## Local database
 
 `backend/.env.example` lists the connection settings. Set them in your shell
-for the PostgreSQL tools. The API does not load an environment file or connect
-to PostgreSQL yet. Let PostgreSQL prompt for your password or use a local
-password file outside the repository.
+for the PostgreSQL tools and the API. Setting `PGDATABASE` enables the API's
+database connection. Use a local PostgreSQL password file outside the
+repository for the API. The PostgreSQL command-line tools can also prompt
+for a password.
 
 Run these commands from `backend/` using a PostgreSQL role with permission to
 create a database. If an administrator has already created the database and
@@ -86,6 +87,16 @@ go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 ```
 
 With sqlc 1.31.1 installed, the equivalent command is `sqlc generate`.
+
+## User registration
+
+After applying the database migrations, start the backend with its PostgreSQL
+environment settings. Send `POST /api/v1/auth/register` with a JSON object
+containing `username`, `email`, `display_name`, and `password`. Success returns
+HTTP 201 with `id`, `username`, `email`, and `display_name`. Registration creates
+only a user account. Usernames and email addresses are trimmed and lowercased
+before insertion. Passwords are hashed with Argon2id from Go's `x/crypto`
+package using a fresh random salt for each registration.
 
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
