@@ -1,12 +1,9 @@
 import { createRoot } from 'react-dom/client';
+import { Registration } from './registration';
 
 const root = document.getElementById('root');
 if (!root) {
   throw new Error('Missing application root');
 }
 
-createRoot(root).render(
-  <main>
-    <h1>DealForge</h1>
-  </main>,
-);
+createRoot(root).render(<Registration />);

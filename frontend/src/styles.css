@@ -1,0 +1,142 @@
+:root {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #162038;
+  background: #eef2f9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+button, input { font: inherit; }
+
+.registration {
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 2.5rem 1rem;
+  background:
+    radial-gradient(ellipse at 18% 12%, #dce9f9 0, transparent 54%),
+    radial-gradient(ellipse at 90% 100%, #e4e2fa 0, transparent 52%);
+}
+
+.registration-shell { width: min(100%, 30rem); }
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin: 0 0 1.2rem .2rem;
+  font-size: 1.25rem;
+  font-weight: 750;
+  letter-spacing: -.04em;
+}
+
+.wordmark-symbol {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: .65rem;
+  background: #243f91;
+  color: white;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.registration-card {
+  padding: clamp(1.25rem, 6vw, 2.25rem);
+  border: 1px solid #d5ddec;
+  border-radius: 1.15rem;
+  background: white;
+  box-shadow: 0 18px 54px #20355d12;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 6vw, 2.15rem);
+  line-height: 1.15;
+  letter-spacing: -.045em;
+}
+
+.intro, .confirmation p {
+  margin: .65rem 0 1.6rem;
+  color: #505b72;
+  line-height: 1.55;
+}
+
+fieldset {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field { display: grid; gap: .4rem; }
+label { font-size: .9rem; font-weight: 650; }
+
+input {
+  width: 100%;
+  min-height: 2.8rem;
+  padding: .62rem .75rem;
+  border: 1px solid #7c8aa2;
+  border-radius: .5rem;
+  background: #fbfcff;
+  color: inherit;
+}
+
+input:focus-visible, button:focus-visible, h1:focus-visible {
+  outline: 2px solid #3158be;
+  outline-offset: 3px;
+}
+
+input[aria-invalid='true'] { border-color: #a52b34; }
+
+.field-hint, .field-error, .form-error {
+  margin: 0;
+  font-size: .85rem;
+  line-height: 1.45;
+}
+
+.field-hint { color: #505b72; }
+.field-error, .form-error { color: #95262f; }
+
+.form-error {
+  margin-bottom: 1rem;
+  padding: .75rem;
+  border: 1px solid #e8b6bc;
+  border-radius: .5rem;
+  background: #fff3f4;
+}
+
+button {
+  min-height: 2.9rem;
+  margin-top: .25rem;
+  padding: .7rem 1rem;
+  border: 0;
+  border-radius: .55rem;
+  background: #284699;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) { background: #203b87; }
+button:disabled { background: #5367a0; cursor: wait; }
+
+.confirmation-mark {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  margin-bottom: 1.25rem;
+  border-radius: 50%;
+  background: #dcf5e7;
+  color: #176140;
+  font-size: 1.4rem;
+  font-weight: 750;
+}
+
+.confirmation p { margin-bottom: 0; }
