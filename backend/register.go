@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -17,7 +14,6 @@ import (
 
 	"github.com/Alok-CS-2022/DealForge/backend/internal/db"
 	"github.com/jackc/pgx/v5/pgconn"
-	"golang.org/x/crypto/argon2"
 )
 
 type userCreator interface {
@@ -61,36 +57,32 @@ func (input *registrationInput) normalizeAndValidate() string {
 	return ""
 }
 
-func registerUser(users userCreator) http.HandlerFunc {
-	// Bound memory use from simultaneous Argon2id calls.
-	hashSlots := make(chan struct{}, 2)
+func registerUser(users userCreator, hashSlots chan struct{}) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input registrationInput
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&input); err != nil || decoder.Decode(new(json.RawMessage)) != io.EOF {
-			writeRegistrationError(w, http.StatusBadRequest, "invalid registration JSON")
+		if !decodeAuthRequest(w, r, &input) {
+			writeAuthError(w, http.StatusBadRequest, "invalid registration JSON")
 			return
 		}
 		if message := input.normalizeAndValidate(); message != "" {
-			writeRegistrationError(w, http.StatusBadRequest, message)
+			writeAuthError(w, http.StatusBadRequest, message)
 			return
 		}
 		if users == nil {
-			writeRegistrationError(w, http.StatusInternalServerError, "could not register user")
+			writeAuthError(w, http.StatusInternalServerError, "could not register user")
 			return
 		}
 		select {
 		case hashSlots <- struct{}{}:
 		default:
-			writeRegistrationError(w, http.StatusServiceUnavailable, "registration is busy, try again")
+			writeAuthError(w, http.StatusServiceUnavailable, "registration is busy, try again")
 			return
 		}
 		hash, err := hashPassword(input.Password)
 		<-hashSlots
 		if err != nil {
 			log.Print("registration password hashing failed")
-			writeRegistrationError(w, http.StatusInternalServerError, "could not register user")
+			writeAuthError(w, http.StatusInternalServerError, "could not register user")
 			return
 		}
 
@@ -104,44 +96,34 @@ func registerUser(users userCreator) http.HandlerFunc {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
 				(pgErr.ConstraintName == "users_username_key" || pgErr.ConstraintName == "users_email_key") {
-				writeRegistrationError(w, http.StatusConflict, "username or email already registered")
+				writeAuthError(w, http.StatusConflict, "username or email already registered")
 				return
 			}
 			log.Print("registration user insert failed")
-			writeRegistrationError(w, http.StatusInternalServerError, "could not register user")
+			writeAuthError(w, http.StatusInternalServerError, "could not register user")
 			return
 		}
 
-		writeRegistrationJSON(w, http.StatusCreated, registeredUser{
+		writeAuthJSON(w, http.StatusCreated, registeredUser{
 			ID: user.ID.String(), Username: user.Username, Email: user.Email, DisplayName: user.DisplayName,
 		})
 	}
 }
 
-func hashPassword(password string) (string, error) {
-	const (
-		memory      = 64 * 1024
-		iterations  = 3
-		parallelism = 4
-	)
-	salt := make([]byte, 16)
-	if _, err := rand.Read(salt); err != nil {
-		return "", err
-	}
-	hash := argon2.IDKey([]byte(password), salt, iterations, memory, parallelism, 32)
-	encoding := base64.RawStdEncoding
-	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, memory, iterations, parallelism,
-		encoding.EncodeToString(salt), encoding.EncodeToString(hash)), nil
+func decodeAuthRequest(w http.ResponseWriter, r *http.Request, input any) bool {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(input) == nil && decoder.Decode(new(json.RawMessage)) == io.EOF
 }
 
-func writeRegistrationError(w http.ResponseWriter, status int, message string) {
-	writeRegistrationJSON(w, status, map[string]string{"error": message})
+func writeAuthError(w http.ResponseWriter, status int, message string) {
+	writeAuthJSON(w, status, map[string]string{"error": message})
 }
 
-func writeRegistrationJSON(w http.ResponseWriter, status int, body any) {
+func writeAuthJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(body); err != nil {
-		log.Print("write registration response failed")
+		log.Print("write auth response failed")
 	}
 }

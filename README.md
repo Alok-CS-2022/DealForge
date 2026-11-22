@@ -98,6 +98,19 @@ only a user account. Usernames and email addresses are trimmed and lowercased
 before insertion. Passwords are hashed with Argon2id from Go's `x/crypto`
 package using a fresh random salt for each registration.
 
+## User login
+
+Send `POST /api/v1/auth/login` with `Content-Type: application/json` and a
+JSON object containing `username` and `password`. Success returns HTTP 204
+and a host-only, HttpOnly session cookie with SameSite=Lax and a 24-hour
+expiry. The cookie is Secure by default. Only for local HTTP development,
+set `DEALFORGE_INSECURE_DEV_COOKIE=true` before starting the backend.
+Production must use HTTPS and leave that override unset.
+
+With the local PostgreSQL settings exported and migrations applied, run
+`TestLoginPersistsSessionInPostgres` with `DEALFORGE_LOGIN_INTEGRATION=1`
+to verify session storage. The test rolls back its fixture user and session.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.

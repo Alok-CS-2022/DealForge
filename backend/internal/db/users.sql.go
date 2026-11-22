@@ -47,3 +47,21 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	)
 	return i, err
 }
+
+const getLoginUser = `-- name: GetLoginUser :one
+SELECT id, password_hash
+FROM dealforge.users
+WHERE lower(username) = lower($1::text)
+`
+
+type GetLoginUserRow struct {
+	ID           pgtype.UUID
+	PasswordHash string
+}
+
+func (q *Queries) GetLoginUser(ctx context.Context, username string) (GetLoginUserRow, error) {
+	row := q.db.QueryRow(ctx, getLoginUser, username)
+	var i GetLoginUserRow
+	err := row.Scan(&i.ID, &i.PasswordHash)
+	return i, err
+}
