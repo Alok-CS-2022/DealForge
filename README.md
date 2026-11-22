@@ -135,7 +135,16 @@ validation, and logout. The test rolls back its fixtures.
 ## Company creation
 
 Send an authenticated `POST /api/v1/companies` with JSON
-`{"name":"Example Company"}`. The name is trimmed and must have 1–100
+`{"name":"Example Company"}` and one `X-DealForge-Expected-User-ID`
+header containing the user ID returned by `GET /api/v1/auth/me`.
+The server uses the validated session to determine the creator.
+A missing, empty, repeated, or mismatched header returns HTTP 412
+with `{"error":"session identity precondition failed"}` before any
+writes. A missing or invalid session returns HTTP 401. After a 412,
+the browser reloads the session and company list before allowing a new
+submission.
+
+The name is trimmed and must have 1–100
 characters. HTTP 201 returns `company` with `id` and `name`, plus `team`
 with `id`, `company_id`, and `name`. The initial team is named `General`.
 The company, team, and the creator's admin and manager memberships are
@@ -153,6 +162,10 @@ An authenticated `GET /api/v1/companies` returns an array of
 only companies with a current membership for the signed-in user and
 excludes archived companies. Results are ordered by name, then UUID.
 If no active memberships match, the response is HTTP 200 with `[]`.
+Clients may send the same identity header on this GET. If supplied,
+it must match the session user or the server returns HTTP 412 without
+listing companies. The browser uses this check to keep company preferences
+scoped to the account it is displaying.
 The `DEALFORGE_COMPANY_INTEGRATION=1` tests also cover this endpoint.
 
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code

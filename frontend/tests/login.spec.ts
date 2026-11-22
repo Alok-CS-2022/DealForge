@@ -11,6 +11,10 @@ const profile = {
   display_name: 'Alice Example',
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/companies', (route) => route.fulfill({ status: 200, json: [] }));
+});
+
 function respondSignedOut(route: Route) {
   return route.fulfill({ status: 401, json: { error: 'invalid or missing session' } });
 }

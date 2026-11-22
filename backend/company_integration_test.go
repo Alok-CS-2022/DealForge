@@ -29,11 +29,20 @@ func TestCreateCompanyInPostgres(t *testing.T) {
 	handler := routes(queries, queries, postgresCompanyStore{database: tx}, true)
 
 	assertUnauthorizedSession(t, postCompany(handler, `{"name":"Unauthenticated `+tag+`"}`, nil))
-	if response := postCompany(handler, `{"name":"  "}`, cookie); response.Code != http.StatusBadRequest {
+	if response := postCompany(handler, `{"name":"  "}`, cookie, creatorID.String()); response.Code != http.StatusBadRequest {
 		t.Fatalf("invalid company name returned %d, want 400", response.Code)
 	}
+	t.Run("rejects the other user's ID without persisting a company", func(t *testing.T) {
+		name := "Mismatched " + tag
+		response := postCompany(handler, `{"name":"`+name+`"}`, cookie, outsiderID.String())
+		assertCompanyPreconditionFailed(t, response)
+		var count int
+		if err := tx.QueryRow(ctx, "SELECT count(*) FROM dealforge.companies WHERE name = $1", name).Scan(&count); err != nil || count != 0 {
+			t.Fatal("mismatched request left a company behind")
+		}
+	})
 	name := "Company " + tag
-	response := postCompany(handler, `{"name":"  `+name+`  "}`, cookie)
+	response := postCompany(handler, `{"name":"  `+name+`  "}`, cookie, creatorID.String())
 	var created createdCompany
 	if response.Code != http.StatusCreated || json.Unmarshal(response.Body.Bytes(), &created) != nil ||
 		created.Company.Name != name || created.Team.CompanyID != created.Company.ID || created.Team.Name != initialTeamName {
@@ -58,7 +67,7 @@ func TestCreateCompanyInPostgres(t *testing.T) {
 		fault := &companyManagerFailure{Tx: tx, outsiderID: outsiderID}
 		failingHandler := routes(queries, queries, postgresCompanyStore{database: fault}, true)
 		failedName := "Rollback " + tag
-		failed := postCompany(failingHandler, `{"name":"`+failedName+`"}`, cookie)
+		failed := postCompany(failingHandler, `{"name":"`+failedName+`"}`, cookie, creatorID.String())
 		if failed.Code != http.StatusInternalServerError || failed.Body.String() != "{\"error\":\"could not create company\"}\n" ||
 			fault.sqlState != "23503" {
 			t.Fatalf("expected sanitized failure from the team membership constraint; status %d, SQLSTATE %q", failed.Code, fault.sqlState)

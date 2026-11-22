@@ -6,11 +6,13 @@ type CreatedWorkspace = {
 };
 
 type CompanyOnboardingProps = {
-  displayName: string;
-  loggingOut: boolean;
-  logoutError: string;
-  onLogout: () => void;
+  userID: string;
+  sessionSignal: AbortSignal;
+  authPending: boolean;
+  onCreatingChange: (creating: boolean) => void;
+  onCreated: (companyID: string, teamName: string) => void;
   onSessionExpired: () => void;
+  onSessionChanged: () => void;
 };
 
 const unconfirmedCreation = 'Could not confirm whether the company was created. Retrying could create another company.';
@@ -20,17 +22,16 @@ function focusHeading(heading: HTMLHeadingElement | null) {
 }
 
 export function CompanyOnboarding({
-  displayName, loggingOut, logoutError, onLogout, onSessionExpired,
+  userID, sessionSignal, authPending, onCreatingChange, onCreated, onSessionExpired, onSessionChanged,
 }: CompanyOnboardingProps) {
   const inFlight = useRef(false);
   const [creating, setCreating] = useState(false);
-  const [workspace, setWorkspace] = useState<CreatedWorkspace | null>(null);
   const [nameError, setNameError] = useState('');
   const [error, setError] = useState('');
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (inFlight.current || loggingOut) return;
+    if (sessionSignal.aborted || inFlight.current || authPending) return;
 
     const input = event.currentTarget.elements.namedItem('name') as HTMLInputElement;
     const name = input.value.trim();
@@ -44,23 +45,29 @@ export function CompanyOnboarding({
 
     inFlight.current = true;
     setCreating(true);
+    onCreatingChange(true);
     try {
       const response = await fetch('/api/v1/companies', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-DealForge-Expected-User-ID': userID },
         body: JSON.stringify({ name }),
+        signal: sessionSignal,
       });
+      if (sessionSignal.aborted) return;
       if (response.status === 401) {
         onSessionExpired();
+      } else if (response.status === 412) {
+        onSessionChanged();
       } else if (response.status === 400) {
         setNameError('Check that the company name is 1–100 characters.');
       } else if (response.status === 201) {
         const data: Partial<CreatedWorkspace> | null = await response.json();
+        if (sessionSignal.aborted) return;
         if (typeof data?.company?.id === 'string' && typeof data.company.name === 'string' &&
             typeof data.team?.id === 'string' && data.team.company_id === data.company.id &&
             typeof data.team.name === 'string') {
-          setWorkspace({ company: data.company, team: data.team });
+          onCreated(data.company.id, data.team.name);
         } else {
           setError(unconfirmedCreation);
         }
@@ -68,52 +75,33 @@ export function CompanyOnboarding({
         setError('The server did not confirm company creation. Retrying could create another company.');
       }
     } catch {
-      setError(unconfirmedCreation);
+      if (!sessionSignal.aborted) setError(unconfirmedCreation);
     } finally {
-      inFlight.current = false;
-      setCreating(false);
+      if (!sessionSignal.aborted) {
+        inFlight.current = false;
+        setCreating(false);
+        onCreatingChange(false);
+      }
     }
   }
 
   return (
     <>
-      {workspace ? (
-        <div className="confirmation">
-          <span className="confirmation-mark" aria-hidden="true">✓</span>
-          <h1 id="auth-title" tabIndex={-1} ref={focusHeading}>Workspace created</h1>
-          <dl className="workspace-details">
-            <div><dt>Company</dt><dd>{workspace.company.name}</dd></div>
-            <div><dt>Initial team</dt><dd>{workspace.team.name}</dd></div>
-          </dl>
-        </div>
-      ) : (
-        <>
-          <h1 id="auth-title" tabIndex={-1} ref={focusHeading}>Create your company</h1>
-          <p className="intro">Your new workspace starts with a General team.</p>
-          <form method="post" noValidate onSubmit={submit} aria-busy={creating}>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <fieldset disabled={creating || loggingOut} aria-label="Company details">
-              <div className="field">
-                <label htmlFor="company-name">Company name</label>
-                <input id="company-name" name="name" required
-                  aria-invalid={Boolean(nameError)}
-                  aria-describedby={nameError ? 'company-name-error' : undefined} />
-                {nameError && <p className="field-error" id="company-name-error" role="alert">{nameError}</p>}
-              </div>
-              <button type="submit">{creating ? 'Creating company…' : 'Create company'}</button>
-            </fieldset>
-          </form>
-        </>
-      )}
-      {logoutError && <p className="form-error company-logout-error" role="alert">{logoutError}</p>}
-      <div className="company-account">
-        <span>Signed in as {displayName}</span>
-        <button type="button" disabled={creating || loggingOut} onClick={() => {
-          if (!inFlight.current) onLogout();
-        }}>
-          {loggingOut ? 'Logging out…' : 'Logout'}
-        </button>
-      </div>
+      <h1 id="auth-title" tabIndex={-1} ref={focusHeading}>Create your company</h1>
+      <p className="intro">Your new workspace starts with a General team.</p>
+      <form method="post" noValidate onSubmit={submit} aria-busy={creating}>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <fieldset disabled={creating || authPending} aria-label="Company details">
+          <div className="field">
+            <label htmlFor="company-name">Company name</label>
+            <input id="company-name" name="name" required
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? 'company-name-error' : undefined} />
+            {nameError && <p className="field-error" id="company-name-error" role="alert">{nameError}</p>}
+          </div>
+          <button type="submit">{creating ? 'Creating company…' : 'Create company'}</button>
+        </fieldset>
+      </form>
     </>
   );
 }

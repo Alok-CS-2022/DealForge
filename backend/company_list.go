@@ -26,6 +26,9 @@ type companyMembership struct {
 
 func listCompanies(companies companyLister) func(http.ResponseWriter, *http.Request, publicUser) {
 	return func(w http.ResponseWriter, r *http.Request, user publicUser) {
+		if !checkExpectedUser(w, r, user.ID, false) {
+			return
+		}
 		var userID pgtype.UUID
 		if err := userID.Scan(user.ID); err != nil || !userID.Valid || companies == nil {
 			writeAuthError(w, http.StatusInternalServerError, "could not list companies")

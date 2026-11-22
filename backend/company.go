@@ -13,6 +13,7 @@ import (
 )
 
 const initialTeamName = "General"
+const expectedUserHeader = "X-DealForge-Expected-User-ID"
 
 type companyCreator interface {
 	CreateCompanyWithTeam(context.Context, string, pgtype.UUID) (createdCompany, error)
@@ -32,6 +33,9 @@ type createdCompany struct {
 
 func createCompany(companies companyCreator) func(http.ResponseWriter, *http.Request, publicUser) {
 	return func(w http.ResponseWriter, r *http.Request, user publicUser) {
+		if !checkExpectedUser(w, r, user.ID, true) {
+			return
+		}
 		var input struct {
 			Name string `json:"name"`
 		}
@@ -57,6 +61,18 @@ func createCompany(companies companyCreator) func(http.ResponseWriter, *http.Req
 		}
 		writeAuthJSON(w, http.StatusCreated, created)
 	}
+}
+
+func checkExpectedUser(w http.ResponseWriter, r *http.Request, userID string, required bool) bool {
+	values := r.Header.Values(expectedUserHeader)
+	if len(values) == 0 && !required {
+		return true
+	}
+	if len(values) == 1 && values[0] != "" && values[0] == userID {
+		return true
+	}
+	writeAuthError(w, http.StatusPreconditionFailed, "session identity precondition failed")
+	return false
 }
 
 type postgresCompanyStore struct {

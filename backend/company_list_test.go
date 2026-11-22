@@ -27,7 +27,7 @@ func (s companyListStoreStub) ListCompaniesForUser(ctx context.Context, userID p
 
 func TestListCompaniesUsesSessionIdentity(t *testing.T) {
 	var userID pgtype.UUID
-	if err := userID.Scan("befaf392-110c-4db5-b582-f8e76660823d"); err != nil {
+	if err := userID.Scan(companyTestUserID); err != nil {
 		t.Fatal(err)
 	}
 	var firstID, secondID pgtype.UUID
@@ -64,6 +64,27 @@ func TestListCompaniesUsesSessionIdentity(t *testing.T) {
 			handler := routes(nil, session, store, true)
 			assertCompanyList(t, getCompanies(handler, companyTestCookie(), "?user_id="+firstID.String()), test.want)
 		})
+	}
+}
+
+func TestListCompaniesChecksSuppliedExpectedUser(t *testing.T) {
+	creator := pgtype.UUID{Valid: true}
+	session := &sessionStoreStub{lookup: func([]byte) (db.GetActiveSessionUserRow, error) {
+		return db.GetActiveSessionUserRow{ID: creator}, nil
+	}}
+	calls := 0
+	store := companyListStoreStub{list: func(_ context.Context, id pgtype.UUID) ([]db.ListCompaniesForUserRow, error) {
+		calls++
+		if id != creator {
+			t.Fatal("list did not use the validated session")
+		}
+		return nil, nil
+	}}
+	handler := routes(nil, session, store, true)
+	assertCompanyPreconditionFailed(t, getCompanies(handler, companyTestCookie(), "", companyTestUserID))
+	assertCompanyList(t, getCompanies(handler, companyTestCookie(), "", creator.String()), nil)
+	if calls != 1 {
+		t.Fatalf("expected only the matching request to reach the store, got %d calls", calls)
 	}
 }
 
@@ -121,6 +142,8 @@ func TestListCompaniesInPostgres(t *testing.T) {
 	addCompany("Archived "+tag, userID, "admin", true)
 	assertCompanyList(t, getCompanies(handler, cookie, "?user_id="+otherID.String()), nil)
 	assertCompanyList(t, getCompanies(handler, otherCookie, ""), []companyMembership{other})
+	assertCompanyPreconditionFailed(t, getCompanies(handler, otherCookie, "", userID.String()))
+	assertCompanyList(t, getCompanies(handler, otherCookie, "", otherID.String()), []companyMembership{other})
 
 	zulu := addCompany("Zulu "+tag, userID, "admin", false)
 	assertCompanyList(t, getCompanies(handler, cookie, ""), []companyMembership{zulu})
@@ -132,8 +155,11 @@ func TestListCompaniesInPostgres(t *testing.T) {
 	assertCompanyList(t, getCompanies(handler, cookie, ""), []companyMembership{alphaOne, alphaTwo, zulu})
 }
 
-func getCompanies(handler http.Handler, cookie *http.Cookie, query string) *httptest.ResponseRecorder {
+func getCompanies(handler http.Handler, cookie *http.Cookie, query string, expectedUsers ...string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/companies"+query, nil)
+	for _, id := range expectedUsers {
+		req.Header.Add(expectedUserHeader, id)
+	}
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}

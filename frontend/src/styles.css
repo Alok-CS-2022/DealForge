@@ -8,7 +8,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 
 .auth-page {
   display: grid;
@@ -78,7 +78,7 @@ fieldset {
 .field { display: grid; gap: .4rem; }
 label { font-size: .9rem; font-weight: 650; }
 
-input {
+input, select {
   width: 100%;
   min-height: 2.8rem;
   padding: .62rem .75rem;
@@ -88,7 +88,7 @@ input {
   color: inherit;
 }
 
-input:focus-visible, button:focus-visible, a:focus-visible, h1:focus-visible {
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, h1:focus-visible {
   outline: 2px solid #3158be;
   outline-offset: 3px;
 }
@@ -177,3 +177,4 @@ button:disabled { background: #5367a0; cursor: wait; }
 
 .workspace-details dt { color: #505b72; font-size: .9rem; }
 .workspace-details dd { margin: .25rem 0 0; font-weight: 650; overflow-wrap: anywhere; }
+.company-selector { margin-bottom: 1.25rem; }

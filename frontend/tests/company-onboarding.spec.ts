@@ -10,11 +10,14 @@ const workspace = {
   },
 };
 
-async function openCompanyScreen(page: Page) {
-  await page.route('**/api/v1/auth/me', (route) => route.fulfill({
+async function openCompanyScreen(page: Page, getCompanies: () => object[] = () => [], isSignedIn = () => true) {
+  await page.route(companiesPath, (route) => route.request().method() === 'GET'
+    ? route.fulfill({ status: 200, json: getCompanies() })
+    : route.fallback());
+  await page.route('**/api/v1/auth/me', (route) => isSignedIn() ? route.fulfill({
     status: 200,
     json: { id: 'd008aa53-5fce-42ec-bdaf-d9495dcaaf24', username: 'alice', email: 'alice@example.test', display_name: 'Alice Example' },
-  }));
+  }) : route.fulfill({ status: 401 }));
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Create your company' })).toBeVisible();
 }
@@ -23,12 +26,18 @@ test('creates a company only on submit and shows the returned workspace', async 
   let release = () => {};
   const gate = new Promise<void>((resolve) => { release = resolve; });
   let submissions = 0;
+  let created = false;
+  const companyList = () => created ? [
+    { id: '08504ebb-5a4e-40a6-a691-45c01ac84d34', name: 'Aardvark', role: 'member' },
+    { ...workspace.company, role: 'admin' },
+  ] : [];
   await page.route(companiesPath, async (route) => {
     submissions++;
     await gate;
+    created = true;
     await route.fulfill({ status: 201, json: workspace });
   });
-  await openCompanyScreen(page);
+  await openCompanyScreen(page, companyList);
   expect(submissions).toBe(0);
   await page.getByLabel('Company name').fill('  Northwind  ');
   const request = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/v1/companies');
@@ -47,12 +56,15 @@ test('creates a company only on submit and shows the returned workspace', async 
   } finally {
     release();
   }
-  await expect(page.getByRole('heading', { name: 'Workspace created' })).toBeFocused();
-  await expect(page.getByText('Northwind', { exact: true })).toBeVisible();
+  const title = page.getByRole('heading', { name: 'Northwind', exact: true });
+  await expect(title).toBeFocused();
+  await expect(page.getByRole('status')).toHaveText('Workspace created.');
+  await expect(page.getByLabel('Company', { exact: true })).toHaveValue(workspace.company.id);
+  await expect(page.getByText('Admin', { exact: true })).toBeVisible();
   await expect(page.getByText('General', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Logout' })).toBeEnabled();
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Create your company' })).toBeVisible();
+  await expect(title).toBeVisible();
   expect(submissions).toBe(1);
 });
 
@@ -104,22 +116,43 @@ for (const failure of [
     await expect(page.getByRole('alert')).not.toContainText('private details');
     await expect(page.getByLabel('Company name')).toHaveValue('Northwind');
     await expect(page.getByRole('button', { name: 'Create company' })).toBeEnabled();
-    await expect(page.getByRole('heading', { name: 'Workspace created' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Northwind', exact: true })).toHaveCount(0);
   });
 }
 
 test('retains the workspace on logout failure and returns to login after retry succeeds', async ({ page }) => {
   let attempts = 0;
-  await page.route(companiesPath, (route) => route.fulfill({ status: 201, json: workspace }));
+  let created = false;
+  await page.route(companiesPath, (route) => {
+    created = true;
+    return route.fulfill({ status: 201, json: workspace });
+  });
   await page.route('**/api/v1/auth/logout', (route) => route.fulfill({ status: ++attempts === 1 ? 500 : 204 }));
-  await openCompanyScreen(page);
+  await openCompanyScreen(page, () => created ? [{ ...workspace.company, role: 'admin' }] : [], () => attempts < 2);
   await page.getByLabel('Company name').fill('Northwind');
   await page.getByRole('button', { name: 'Create company' }).click();
-  await expect(page.getByRole('heading', { name: 'Workspace created' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Northwind', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Logout' }).click();
   await expect(page.getByRole('alert')).toContainText('could not confirm logout', { ignoreCase: true });
-  await expect(page.getByRole('heading', { name: 'Workspace created' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Northwind', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Logout' }).click();
   await expect(page.getByRole('heading', { name: 'Log in' })).toBeFocused();
   await expect(page.getByRole('status')).toHaveText('You are logged out.');
+});
+
+test('retries the company list without creating a second company if the new workspace is unavailable', async ({ page }) => {
+  let submissions = 0;
+  let listReads = 0;
+  await page.route(companiesPath, (route) => {
+    submissions++;
+    return route.fulfill({ status: 201, json: workspace });
+  });
+  await openCompanyScreen(page, () => ++listReads > 2 ? [{ ...workspace.company, role: 'admin' }] : []);
+  await page.getByLabel('Company name').fill('Northwind');
+  await page.getByRole('button', { name: 'Create company' }).click();
+  await expect(page.getByRole('alert')).toContainText('Your company was created, but its workspace could not be loaded.');
+  await expect(page.getByRole('button', { name: 'Create company' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Reload companies' }).click();
+  await expect(page.getByRole('heading', { name: 'Northwind', exact: true })).toBeVisible();
+  expect(submissions).toBe(1);
 });

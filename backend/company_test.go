@@ -16,6 +16,8 @@ import (
 
 type companyCreatorFunc func(context.Context, string, pgtype.UUID) (createdCompany, error)
 
+const companyTestUserID = "befaf392-110c-4db5-b582-f8e76660823d"
+
 func (f companyCreatorFunc) CreateCompanyWithTeam(ctx context.Context, name string, id pgtype.UUID) (createdCompany, error) {
 	return f(ctx, name, id)
 }
@@ -26,7 +28,7 @@ func (f companyCreatorFunc) ListCompaniesForUser(context.Context, pgtype.UUID) (
 
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
-	if err := creator.Scan("befaf392-110c-4db5-b582-f8e76660823d"); err != nil {
+	if err := creator.Scan(companyTestUserID); err != nil {
 		t.Fatal(err)
 	}
 	store := &sessionStoreStub{lookup: func([]byte) (db.GetActiveSessionUserRow, error) {
@@ -42,7 +44,7 @@ func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 		result.Team.CompanyID = result.Company.ID
 		return result, nil
 	})
-	response := postCompany(routes(nil, store, companies, true), `{"name":"  DealForge Studio  "}`, companyTestCookie())
+	response := postCompany(routes(nil, store, companies, true), `{"name":"  DealForge Studio  "}`, companyTestCookie(), creator.String())
 	want := `{"company":{"id":"d8cd82a9-2fa5-477a-b713-8762a8d7b27d","name":"DealForge Studio"},"team":{"id":"2b855f87-7956-40ae-847a-278c88bb7b4c","company_id":"d8cd82a9-2fa5-477a-b713-8762a8d7b27d","name":"General"}}` + "\n"
 	if response.Code != http.StatusCreated || response.Header().Get("Content-Type") != "application/json" || response.Body.String() != want {
 		t.Fatalf("unexpected company response, status %d", response.Code)
@@ -55,10 +57,11 @@ func TestCreateCompanyRejectsInvalidRequests(t *testing.T) {
 		return createdCompany{}, nil
 	})
 	store := &sessionStoreStub{lookup: func([]byte) (db.GetActiveSessionUserRow, error) {
-		return db.GetActiveSessionUserRow{}, nil
+		return db.GetActiveSessionUserRow{ID: pgtype.UUID{Valid: true}}, nil
 	}}
 	handler := routes(nil, store, companies, true)
-	assertUnauthorizedSession(t, postCompany(handler, `{"name":"Studio"}`, nil))
+	expected := (pgtype.UUID{Valid: true}).String()
+	assertUnauthorizedSession(t, postCompany(handler, `{"name":"Studio"}`, nil, expected))
 	for name, body := range map[string]string{
 		"missing name": `{}`,
 		"blank name":   `{"name":"  "}`,
@@ -67,7 +70,7 @@ func TestCreateCompanyRejectsInvalidRequests(t *testing.T) {
 		"client owner": `{"name":"Studio","owner_id":"befaf392-110c-4db5-b582-f8e76660823d"}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			if response := postCompany(handler, body, companyTestCookie()); response.Code != http.StatusBadRequest {
+			if response := postCompany(handler, body, companyTestCookie(), expected); response.Code != http.StatusBadRequest {
 				t.Errorf("invalid company returned %d, want 400", response.Code)
 			}
 		})
@@ -82,9 +85,46 @@ func TestCreateCompanyRejectsInvalidRequests(t *testing.T) {
 	}
 }
 
+func TestCreateCompanyRejectsMissingOrWrongExpectedUser(t *testing.T) {
+	var creator pgtype.UUID
+	if err := creator.Scan(companyTestUserID); err != nil {
+		t.Fatal(err)
+	}
+	store := &sessionStoreStub{lookup: func([]byte) (db.GetActiveSessionUserRow, error) {
+		return db.GetActiveSessionUserRow{ID: creator}, nil
+	}}
+	companies := companyCreatorFunc(func(context.Context, string, pgtype.UUID) (createdCompany, error) {
+		t.Fatal("failed identity precondition reached the company store")
+		return createdCompany{}, nil
+	})
+	handler := routes(nil, store, companies, true)
+	for name, values := range map[string][]string{
+		"missing":    nil,
+		"empty":      {""},
+		"malformed":  {"not-a-user-id"},
+		"wrong user": {"d8cd82a9-2fa5-477a-b713-8762a8d7b27d"},
+		"repeated":   {creator.String(), creator.String()},
+		"combined":   {creator.String() + ", " + creator.String()},
+	} {
+		t.Run(name, func(t *testing.T) {
+			response := postCompany(handler, `{"name":"Studio"}`, companyTestCookie(), values...)
+			assertCompanyPreconditionFailed(t, response)
+		})
+	}
+}
+
+func assertCompanyPreconditionFailed(t *testing.T, response *httptest.ResponseRecorder) {
+	t.Helper()
+	if response.Code != http.StatusPreconditionFailed ||
+		response.Body.String() != "{\"error\":\"session identity precondition failed\"}\n" ||
+		response.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("expected a safe 412, got status %d", response.Code)
+	}
+}
+
 func TestCreateCompanyHidesDatabaseErrors(t *testing.T) {
 	var creator pgtype.UUID
-	if err := creator.Scan("befaf392-110c-4db5-b582-f8e76660823d"); err != nil {
+	if err := creator.Scan(companyTestUserID); err != nil {
 		t.Fatal(err)
 	}
 	store := &sessionStoreStub{lookup: func([]byte) (db.GetActiveSessionUserRow, error) {
@@ -93,7 +133,7 @@ func TestCreateCompanyHidesDatabaseErrors(t *testing.T) {
 	companies := companyCreatorFunc(func(context.Context, string, pgtype.UUID) (createdCompany, error) {
 		return createdCompany{}, errors.New("private database details")
 	})
-	response := postCompany(routes(nil, store, companies, true), `{"name":"Studio"}`, companyTestCookie())
+	response := postCompany(routes(nil, store, companies, true), `{"name":"Studio"}`, companyTestCookie(), creator.String())
 	if response.Code != http.StatusInternalServerError || response.Body.String() != "{\"error\":\"could not create company\"}\n" {
 		t.Fatalf("expected a generic 500, got status %d", response.Code)
 	}
@@ -159,9 +199,12 @@ func TestCreateCompanyRollsBackWhenManagerInsertFails(t *testing.T) {
 	}
 }
 
-func postCompany(handler http.Handler, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
+func postCompany(handler http.Handler, body string, cookie *http.Cookie, expectedUsers ...string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/companies", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	for _, id := range expectedUsers {
+		req.Header.Add(expectedUserHeader, id)
+	}
 	if cookie != nil {
 		req.AddCookie(cookie)
 	}
