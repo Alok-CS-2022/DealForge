@@ -31,7 +31,18 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite.
+Open the loopback URL printed by Vite, usually `http://127.0.0.1:5173`.
+Browser code should call the API with relative URLs such as
+`/api/v1/auth/me`. The Vite development server forwards `/api` requests
+to Go on `http://127.0.0.1:8080` and preserves the browser's origin and
+host for cookie handling and origin checks. Vite preview and production
+builds have no development proxy.
+
+To use session cookies over local HTTP, set the PostgreSQL configuration
+described below and `$env:DEALFORGE_INSECURE_DEV_COOKIE = 'true'` in the
+**backend** terminal before running `go run .`. Keep database credentials
+in the backend environment or a PostgreSQL password file. Use the same
+frontend URL throughout the browser session.
 
 ## Tests and builds
 
