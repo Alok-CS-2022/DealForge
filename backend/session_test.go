@@ -50,7 +50,7 @@ func TestCurrentUserAcceptsSessionCookie(t *testing.T) {
 		{"Development", false, "dealforge_session"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			response := getCurrentUser(routes(nil, store, test.secure), &http.Cookie{Name: test.cookie, Value: sessionFixtureToken})
+			response := getCurrentUser(routes(nil, store, nil, test.secure), &http.Cookie{Name: test.cookie, Value: sessionFixtureToken})
 			if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "no-store" ||
 				response.Header().Get("Set-Cookie") != "" {
 				t.Fatalf("unexpected profile response, status %d", response.Code)
@@ -80,7 +80,7 @@ func TestCurrentUserRejectsInvalidSessions(t *testing.T) {
 				called = true
 				return db.GetActiveSessionUserRow{}, pgx.ErrNoRows
 			}}
-			response := getCurrentUser(routes(nil, store, true), test.cookies...)
+			response := getCurrentUser(routes(nil, store, nil, true), test.cookies...)
 			assertUnauthorizedSession(t, response)
 			if called != test.lookup {
 				t.Errorf("database lookup called = %t, want %t", called, test.lookup)
@@ -93,7 +93,7 @@ func TestCurrentUserDatabaseError(t *testing.T) {
 	store := &sessionStoreStub{lookup: func([]byte) (db.GetActiveSessionUserRow, error) {
 		return db.GetActiveSessionUserRow{}, errors.New("private database details")
 	}}
-	response := getCurrentUser(routes(nil, store, true), &http.Cookie{
+	response := getCurrentUser(routes(nil, store, nil, true), &http.Cookie{
 		Name: "__Host-dealforge_session", Value: base64.RawURLEncoding.EncodeToString(make([]byte, sessionTokenSize)),
 	})
 	if response.Code != http.StatusInternalServerError ||

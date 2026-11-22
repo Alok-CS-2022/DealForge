@@ -16,6 +16,7 @@ import (
 func main() {
 	var users userCreator
 	var sessions authSessionStore
+	var companies companyCreator
 	if os.Getenv("PGDATABASE") != "" {
 		pool, err := pgxpool.New(context.Background(), "")
 		if err != nil {
@@ -25,11 +26,12 @@ func main() {
 		queries := db.New(pool)
 		users = queries
 		sessions = queries
+		companies = postgresCompanyCreator{database: pool}
 	}
 
 	server := &http.Server{
 		Addr:              "127.0.0.1:8080",
-		Handler:           routes(users, sessions, os.Getenv("DEALFORGE_INSECURE_DEV_COOKIE") != "true"),
+		Handler:           routes(users, sessions, companies, os.Getenv("DEALFORGE_INSECURE_DEV_COOKIE") != "true"),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	log.Printf("Listening on http://%s", server.Addr)
@@ -38,14 +40,16 @@ func main() {
 	}
 }
 
-func routes(users userCreator, sessions authSessionStore, secureCookie bool) http.Handler {
+func routes(users userCreator, sessions authSessionStore, companies companyCreator, secureCookie bool) http.Handler {
 	router := chi.NewRouter()
+	sameOrigin := http.NewCrossOriginProtection().Handler
 	// Share the Argon2id memory budget across both auth endpoints.
 	hashSlots := make(chan struct{}, 2)
 	router.Post("/api/v1/auth/register", registerUser(users, hashSlots))
 	router.Post("/api/v1/auth/login", loginUser(sessions, hashSlots, secureCookie))
 	router.Get("/api/v1/auth/me", requireSession(sessions, secureCookie, currentUser))
-	router.With(http.NewCrossOriginProtection().Handler).Post("/api/v1/auth/logout", logoutUser(sessions, secureCookie))
+	router.With(sameOrigin).Post("/api/v1/auth/logout", logoutUser(sessions, secureCookie))
+	router.With(sameOrigin).Post("/api/v1/companies", requireSession(sessions, secureCookie, createCompany(companies)))
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := io.WriteString(w, "{\"status\":\"ok\"}\n"); err != nil {

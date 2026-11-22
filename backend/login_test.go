@@ -63,7 +63,7 @@ func loginTestUser(t *testing.T) db.GetLoginUserRow {
 
 func TestLoginCreatesFreshSession(t *testing.T) {
 	store := &loginStoreStub{user: loginTestUser(t)}
-	handler := routes(nil, store, true)
+	handler := routes(nil, store, nil, true)
 	incoming := strings.Repeat("x", 43)
 	for i := range 2 {
 		response := postLogin(handler, validLoginJSON, "__Host-dealforge_session", incoming)
@@ -106,7 +106,7 @@ func TestLoginCreatesFreshSession(t *testing.T) {
 
 func TestLoginInsecureDevelopmentCookie(t *testing.T) {
 	store := &loginStoreStub{user: loginTestUser(t)}
-	response := postLogin(routes(nil, store, false), validLoginJSON, "", "")
+	response := postLogin(routes(nil, store, nil, false), validLoginJSON, "", "")
 	cookies := response.Result().Cookies()
 	if response.Code != http.StatusNoContent || len(cookies) != 1 ||
 		cookies[0].Name != "dealforge_session" || cookies[0].Secure || !cookies[0].HttpOnly ||
@@ -129,7 +129,7 @@ func TestLoginRejectsInvalidCredentials(t *testing.T) {
 		}}, validLoginJSON},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			response := postLogin(routes(nil, &test.store, true), test.body, "", "")
+			response := postLogin(routes(nil, &test.store, nil, true), test.body, "", "")
 			if response.Code != http.StatusUnauthorized ||
 				response.Body.String() != "{\"error\":\"invalid username or password\"}\n" ||
 				response.Header().Get("Set-Cookie") != "" || len(test.store.inserted) != 0 {
@@ -146,7 +146,7 @@ func TestLoginDatabaseFailures(t *testing.T) {
 		"session insert": {user: loginTestUser(t), insertErr: failure},
 	} {
 		t.Run(name, func(t *testing.T) {
-			response := postLogin(routes(nil, store, true), validLoginJSON, "", "")
+			response := postLogin(routes(nil, store, nil, true), validLoginJSON, "", "")
 			if response.Code != http.StatusInternalServerError ||
 				response.Body.String() != "{\"error\":\"could not sign in\"}\n" ||
 				response.Header().Get("Set-Cookie") != "" {
@@ -161,7 +161,7 @@ func TestLoginRequiresJSON(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(validLoginJSON))
 	request.Header.Set("Content-Type", "text/plain")
 	response := httptest.NewRecorder()
-	routes(nil, store, true).ServeHTTP(response, request)
+	routes(nil, store, nil, true).ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest || store.username != "" {
 		t.Fatal("login accepted a non-JSON request")
 	}

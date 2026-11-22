@@ -34,7 +34,7 @@ func TestLogoutRevokesCookieAndClearsIt(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			store := &revocationStoreStub{}
-			handler := routes(nil, store, test.secure)
+			handler := routes(nil, store, nil, test.secure)
 			cookie := &http.Cookie{
 				Name: test.cookieName, Value: sessionFixtureToken, Path: "/",
 				HttpOnly: true, Secure: test.secure, SameSite: http.SameSiteLaxMode,
@@ -72,7 +72,7 @@ func TestLogoutRevokesCookieAndClearsIt(t *testing.T) {
 func TestLogoutIgnoresUnusableCookies(t *testing.T) {
 	current := &http.Cookie{Name: "__Host-dealforge_session", Path: "/", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}
 	store := &revocationStoreStub{}
-	handler := routes(nil, store, true)
+	handler := routes(nil, store, nil, true)
 	token := &http.Cookie{Name: current.Name, Value: sessionFixtureToken}
 	for _, cookies := range [][]*http.Cookie{
 		nil,
@@ -99,7 +99,7 @@ func TestLogoutRejectsCrossOriginRequests(t *testing.T) {
 			request.Header.Set(name, value)
 		}
 		response := httptest.NewRecorder()
-		routes(nil, store, true).ServeHTTP(response, request)
+		routes(nil, store, nil, true).ServeHTTP(response, request)
 		if response.Code != http.StatusForbidden || len(store.revoked) != 0 || response.Header().Get("Set-Cookie") != "" {
 			t.Fatal("cross-origin logout was allowed to change session state")
 		}
@@ -108,7 +108,7 @@ func TestLogoutRejectsCrossOriginRequests(t *testing.T) {
 
 func TestLogoutDatabaseFailureDoesNotClearCookie(t *testing.T) {
 	store := &revocationStoreStub{err: errors.New("private database details")}
-	response := postLogout(routes(nil, store, true), &http.Cookie{
+	response := postLogout(routes(nil, store, nil, true), &http.Cookie{
 		Name: "__Host-dealforge_session", Value: sessionFixtureToken,
 	})
 	if response.Code != http.StatusInternalServerError ||

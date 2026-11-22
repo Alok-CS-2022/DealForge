@@ -52,7 +52,7 @@ func TestRegisterUser(t *testing.T) {
 			t.Fatal("hash did not preserve the original password")
 		}
 		return db.CreateUserRow{ID: id, Username: params.Username, Email: params.Email, DisplayName: params.DisplayName}, nil
-	}), nil, true)
+	}), nil, nil, true)
 
 	want := map[string]string{"id": userID, "username": "alice_1", "email": "alice@example.com", "display_name": "Alice Example"}
 	for range 2 {
@@ -71,7 +71,7 @@ func TestRegisterInvalidInput(t *testing.T) {
 	handler := routes(createUserFunc(func(context.Context, db.CreateUserParams) (db.CreateUserRow, error) {
 		t.Error("invalid registration reached the database")
 		return db.CreateUserRow{}, nil
-	}), nil, true)
+	}), nil, nil, true)
 	for name, body := range map[string]string{
 		"malformed JSON":       `{"username":`,
 		"missing fields":       `{}`,
@@ -107,7 +107,7 @@ func TestRegisterDatabaseErrors(t *testing.T) {
 				return db.CreateUserRow{}, &pgconn.PgError{
 					Code: test.code, ConstraintName: test.constraint, Detail: "internal database detail",
 				}
-			}), nil, true)
+			}), nil, nil, true)
 			response := postRegistration(handler, registrationJSON)
 			if response.Code != test.status {
 				t.Errorf("status = %d, want %d", response.Code, test.status)

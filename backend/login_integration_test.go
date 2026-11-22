@@ -58,7 +58,7 @@ func TestLoginPersistsSessionInPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal("could not encode login input")
 	}
-	handler := routes(queries, queries, true)
+	handler := routes(queries, queries, nil, true)
 	response := postLogin(handler, string(payload), "", "")
 	cookies := response.Result().Cookies()
 	if response.Code != http.StatusNoContent || len(cookies) != 1 {

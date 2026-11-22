@@ -132,6 +132,20 @@ With the local PostgreSQL settings exported and migrations applied, run
 `backend/` with `DEALFORGE_LOGIN_INTEGRATION=1` to verify session storage,
 validation, and logout. The test rolls back its fixtures.
 
+## Company creation
+
+Send an authenticated `POST /api/v1/companies` with JSON
+`{"name":"Example Company"}`. The name is trimmed and must have 1–100
+characters. HTTP 201 returns `company` with `id` and `name`, plus `team`
+with `id`, `company_id`, and `name`. The initial team is named `General`.
+The company, team, and the creator's admin and manager memberships are
+created in one transaction.
+
+With the local PostgreSQL settings exported, set
+`DEALFORGE_COMPANY_INTEGRATION=1` and run
+`go test -count=1 -run TestCreateCompanyInPostgres ./...` from `backend/`.
+The test rolls back its fixtures.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.
