@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { AuthPage } from './auth-page';
+import { CompanyOnboarding } from './company-onboarding';
 
 type Session =
   | { status: 'checking' | 'unavailable' | 'signed-out' }
@@ -29,7 +30,7 @@ export function Login() {
   const inFlight = useRef(false);
   const [session, setSession] = useState<Session>({ status: 'checking' });
   const [pending, setPending] = useState(false);
-  const [signedOut, setSignedOut] = useState(false);
+  const [signOutReason, setSignOutReason] = useState<'logout' | 'expired' | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function Login() {
     passwordInput.value = '';
     inFlight.current = true;
     setPending(true);
-    setSignedOut(false);
+    setSignOutReason(null);
     setError('');
     try {
       const response = await fetch('/api/v1/auth/login', {
@@ -96,7 +97,7 @@ export function Login() {
     try {
       const response = await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'same-origin' });
       if (response.status === 204) {
-        setSignedOut(true);
+        setSignOutReason('logout');
         setSession({ status: 'signed-out' });
       } else {
         setError('The server could not confirm logout. Try again in a moment.');
@@ -109,22 +110,21 @@ export function Login() {
     }
   }
 
+  function sessionExpired() {
+    setError('');
+    setSignOutReason('expired');
+    setSession({ status: 'signed-out' });
+  }
+
   return (
     <AuthPage>
       {session.status === 'signed-in' ? (
-        <>
-          <h1 key="welcome" id="auth-title" tabIndex={-1} ref={focusHeading}>Welcome, {session.displayName}</h1>
-          <div className="auth-actions">
-            {error && <p className="form-error" role="alert">{error}</p>}
-            <button type="button" disabled={pending} onClick={logout}>
-              {pending ? 'Logging out…' : 'Logout'}
-            </button>
-          </div>
-        </>
+        <CompanyOnboarding displayName={session.displayName} loggingOut={pending}
+          logoutError={error} onLogout={logout} onSessionExpired={sessionExpired} />
       ) : (
         <>
-          <h1 key="login" id="auth-title" tabIndex={signedOut ? -1 : undefined}
-            ref={signedOut ? focusHeading : undefined}>Log in</h1>
+          <h1 id="auth-title" tabIndex={signOutReason ? -1 : undefined}
+            ref={signOutReason ? focusHeading : undefined}>Log in</h1>
           {session.status === 'checking' && <p className="intro" role="status">Checking your session…</p>}
           {session.status === 'unavailable' && (
             <div className="auth-actions">
@@ -134,7 +134,8 @@ export function Login() {
           )}
           {session.status === 'signed-out' && (
             <>
-              {signedOut && <p className="intro" role="status">You are logged out.</p>}
+              {signOutReason === 'logout' && <p className="intro" role="status">You are logged out.</p>}
+              {signOutReason === 'expired' && <p className="form-error" role="alert">Your session expired. Log in again to create a company.</p>}
               <form method="post" onSubmit={submit} aria-busy={pending}>
                 {error && <p className="form-error" role="alert">{error}</p>}
                 <fieldset disabled={pending} aria-label="Login details">

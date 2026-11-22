@@ -63,11 +63,11 @@ test('logs in once, reads the profile, and restores the session after refresh', 
   } finally {
     release();
   }
-  const welcome = page.getByRole('heading', { name: 'Welcome, Alice Example' });
-  await expect(welcome).toBeFocused();
+  const onboarding = page.getByRole('heading', { name: 'Create your company' });
+  await expect(onboarding).toBeFocused();
   expect(profileRequests).toBe(2);
   await page.reload();
-  await expect(welcome).toBeVisible();
+  await expect(onboarding).toBeVisible();
   expect(profileRequests).toBe(3);
   expect(loginRequests).toBe(1);
   await expect(page.getByLabel('Password')).toHaveCount(0);
@@ -111,13 +111,13 @@ test('retries a failed profile request after login without resubmitting credenti
   await page.goto('/login');
   await loginForm(page);
   await expect(page.getByRole('alert')).toContainText('Could not check your session.');
-  await expect(page.getByRole('heading', { name: 'Welcome, Alice Example' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Create your company' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Retry session check' }).click();
-  await expect(page.getByRole('heading', { name: 'Welcome, Alice Example' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create your company' })).toBeVisible();
   expect(loginRequests).toBe(1);
 });
 
-test('keeps the welcome screen until logout succeeds and shows the login form afterward', async ({ page }) => {
+test('keeps the company screen until logout succeeds and shows the login form afterward', async ({ page }) => {
   let release = () => {};
   const gate = new Promise<void>((resolve) => { release = resolve; });
   let active = true;
@@ -133,7 +133,7 @@ test('keeps the welcome screen until logout succeeds and shows the login form af
     await page.getByRole('button', { name: 'Logout' }).click();
     expect((await pending).method()).toBe('POST');
     await expect(page.getByRole('button', { name: 'Logging out…' })).toBeDisabled();
-    await expect(page.getByRole('heading', { name: 'Welcome, Alice Example' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your company' })).toBeVisible();
     await expect(page.getByText('You are logged out.')).toHaveCount(0);
   } finally {
     release();
@@ -153,7 +153,7 @@ for (const fail of ['server', 'network']) {
     await page.goto('/login');
     await page.getByRole('button', { name: 'Logout' }).click();
     await expect(page.getByRole('alert')).toContainText('could not confirm logout', { ignoreCase: true });
-    await expect(page.getByRole('heading', { name: 'Welcome, Alice Example' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Create your company' })).toBeVisible();
     await expect(page.getByText('You are logged out.')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Logout' })).toBeEnabled();
   });

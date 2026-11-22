@@ -152,3 +152,28 @@ button:disabled { background: #5367a0; cursor: wait; }
 .auth-link a { color: #243f91; font-weight: 650; text-underline-offset: .16em; }
 .auth-actions { display: grid; }
 .auth-actions p { margin-top: 1rem; }
+
+.company-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d5ddec;
+  color: #505b72;
+}
+
+.company-account span { overflow-wrap: anywhere; }
+.company-account button { margin-top: 0; }
+.company-logout-error { margin: 1rem 0 0; }
+
+.workspace-details {
+  display: grid;
+  gap: .9rem;
+  margin: 1.2rem 0 0;
+}
+
+.workspace-details dt { color: #505b72; font-size: .9rem; }
+.workspace-details dd { margin: .25rem 0 0; font-weight: 650; overflow-wrap: anywhere; }
