@@ -51,6 +51,7 @@ func routes(users userCreator, sessions authSessionStore, companies companyStore
 	router.With(sameOrigin).Post("/api/v1/auth/logout", logoutUser(sessions, secureCookie))
 	router.With(sameOrigin).Post("/api/v1/companies", requireSession(sessions, secureCookie, createCompany(companies)))
 	router.Get("/api/v1/companies", requireSession(sessions, secureCookie, listCompanies(companies)))
+	router.Get("/api/v1/companies/{companyID}/teams", requireSession(sessions, secureCookie, listTeams(companies)))
 	router.With(sameOrigin).Post("/api/v1/companies/{companyID}/contacts", requireSession(sessions, secureCookie, createContact(companies)))
 	router.Get("/api/v1/companies/{companyID}/contacts", requireSession(sessions, secureCookie, listContacts(companies)))
 	router.With(sameOrigin).Post("/api/v1/companies/{companyID}/teams/{teamID}/deals", requireSession(sessions, secureCookie, createDeal(companies)))

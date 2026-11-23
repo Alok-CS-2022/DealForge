@@ -26,6 +26,10 @@ func (f companyCreatorFunc) ListCompaniesForUser(context.Context, pgtype.UUID) (
 	return nil, errors.New("unexpected company list call")
 }
 
+func (f companyCreatorFunc) ListCompanyTeams(context.Context, db.ListCompanyTeamsParams) ([]db.ListCompanyTeamsRow, error) {
+	return nil, errors.New("unexpected team listing call")
+}
+
 func (f companyCreatorFunc) CreateCompanyContact(context.Context, pgtype.UUID, db.CreateContactParams) (db.DealforgeContact, error) {
 	return db.DealforgeContact{}, errors.New("unexpected contact creation call")
 }

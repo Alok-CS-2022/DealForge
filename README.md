@@ -168,6 +168,23 @@ listing companies. The browser uses this check to keep company preferences
 scoped to the account it is displaying.
 The `DEALFORGE_COMPANY_INTEGRATION=1` tests also cover this endpoint.
 
+## Team listing
+
+An authenticated `GET /api/v1/companies/{companyID}/teams` returns a JSON
+array of objects with `id`, `company_id`, `name`, and `role`
+(`manager` or `salesperson`). Results include only active teams that the
+session user belongs to within the active company, ordered by name and then ID.
+Company admins also need team membership to see a team. An accessible company
+with no visible teams returns 200 with `[]`.
+
+Missing, archived, and inaccessible companies all return 404. A malformed
+company ID returns 400, an invalid session returns 401, and database failures
+return a generic 500. If supplied, `X-DealForge-Expected-User-ID` must match
+the session or the request returns 412.
+
+Run `go test -count=1 -run TestListTeamsInPostgres ./...` from `backend/`
+with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
+
 ## Contact creation
 
 Send an authenticated `POST /api/v1/companies/{companyID}/contacts` with
