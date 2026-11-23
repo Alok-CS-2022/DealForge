@@ -50,6 +50,10 @@ func (f companyCreatorFunc) UpdateTeamDealStage(context.Context, pgtype.UUID, db
 	return db.UpdateDealStageRow{}, errors.New("unexpected deal stage update call")
 }
 
+func (f companyCreatorFunc) CreateDealTask(context.Context, pgtype.UUID, db.CreateTaskParams) (db.DealforgeTask, error) {
+	return db.DealforgeTask{}, errors.New("unexpected task creation call")
+}
+
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
 	if err := creator.Scan(companyTestUserID); err != nil {

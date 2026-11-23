@@ -300,6 +300,35 @@ Run `go test -count=1 -run TestUpdateDealStage.*InPostgres ./...` from
 `backend/` with the local PostgreSQL settings and
 `DEALFORGE_COMPANY_INTEGRATION=1`.
 
+## Task creation
+
+Send an authenticated
+`POST /api/v1/companies/{companyID}/teams/{teamID}/deals/{dealID}/tasks`
+with one `X-DealForge-Expected-User-ID` header matching `GET /api/v1/auth/me`.
+The session user must be a manager or salesperson in the active team and
+belong to its active company. Company admins need team membership as well.
+
+The JSON body accepts only `title` and `due_date`, both required. The server
+trims the title and requires 1–100 characters. The due date must be a valid
+calendar date in `YYYY-MM-DD` format. Past dates and all deal stages are allowed.
+
+HTTP 201 returns the stored `id`, `deal_id`, `team_id`, `title`, `due_date`,
+`status`, `completed_at`, `assignee_user_id`, `created_at`, and `updated_at`.
+New tasks are `pending` with null `completed_at` and `assignee_user_id`.
+The task and its append-only activity entry commit together. The entry uses
+action `created`, entity type `task`, the task ID, and the authenticated
+actor's user ID. Its `changes` object records the saved team ID, deal ID,
+title, due date, and status.
+
+Invalid input or malformed IDs return 400, invalid sessions return 401,
+cross-origin writes return 403, and a missing or mismatched account header
+returns 412. Missing, archived, or inaccessible companies and teams, and
+missing or out-of-scope deals, return the same 404. Unexpected failures
+return a generic 500.
+
+Run `go test -count=1 -run TestCreateTaskInPostgres ./...` from `backend/`
+with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.
