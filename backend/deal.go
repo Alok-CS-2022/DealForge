@@ -135,12 +135,7 @@ func createDeal(deals dealCreator) func(http.ResponseWriter, *http.Request, publ
 			writeAuthError(w, http.StatusInternalServerError, "could not create deal")
 			return
 		}
-		writeAuthJSON(w, http.StatusCreated, dealResponse{
-			ID: deal.ID, CompanyID: deal.CompanyID, TeamID: deal.TeamID, ContactID: deal.ContactID,
-			Title: deal.Title, Amount: deal.Amount, Currency: deal.Currency, Stage: deal.Stage,
-			ExpectedCloseDate: deal.ExpectedCloseDate, LostReason: deal.LostReason, AssigneeUserID: deal.AssigneeUserID,
-			CreatedAt: deal.CreatedAt, UpdatedAt: deal.UpdatedAt,
-		})
+		writeAuthJSON(w, http.StatusCreated, dealResponse(deal))
 	}
 }
 

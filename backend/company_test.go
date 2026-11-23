@@ -38,6 +38,10 @@ func (f companyCreatorFunc) CreateTeamDeal(context.Context, pgtype.UUID, db.Crea
 	return db.CreateDealRow{}, errors.New("unexpected deal creation call")
 }
 
+func (f companyCreatorFunc) ListTeamDeals(context.Context, db.ListTeamDealsParams) ([]db.ListTeamDealsRow, error) {
+	return nil, errors.New("unexpected deal listing call")
+}
+
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
 	if err := creator.Scan(companyTestUserID); err != nil {

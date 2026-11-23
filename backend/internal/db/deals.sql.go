@@ -86,6 +86,80 @@ func (q *Queries) CreateDeal(ctx context.Context, arg CreateDealParams) (CreateD
 	return i, err
 }
 
+const listTeamDeals = `-- name: ListTeamDeals :many
+SELECT d.id, t.company_id, t.id AS team_id, d.contact_id,
+       COALESCE(d.title, '') AS title, COALESCE(d.amount::text, '')::text AS amount,
+       COALESCE(d.currency, '') AS currency, COALESCE(d.stage, '') AS stage,
+       d.expected_close_date, d.lost_reason, d.assignee_user_id, d.created_at, d.updated_at
+FROM dealforge.teams AS t
+JOIN dealforge.companies AS c ON c.id = t.company_id
+JOIN dealforge.company_memberships AS cm
+  ON cm.company_id = c.id AND cm.user_id = $1
+JOIN dealforge.team_memberships AS tm
+  ON tm.company_id = t.company_id AND tm.team_id = t.id AND tm.user_id = cm.user_id
+  AND tm.role IN ('manager', 'salesperson')
+LEFT JOIN dealforge.deals AS d ON d.company_id = t.company_id AND d.team_id = t.id
+WHERE t.company_id = $2 AND t.id = $3
+  AND c.archived_at IS NULL AND t.archived_at IS NULL
+ORDER BY d.created_at DESC, d.id ASC
+`
+
+type ListTeamDealsParams struct {
+	UserID    pgtype.UUID
+	CompanyID pgtype.UUID
+	TeamID    pgtype.UUID
+}
+
+type ListTeamDealsRow struct {
+	ID                pgtype.UUID
+	CompanyID         pgtype.UUID
+	TeamID            pgtype.UUID
+	ContactID         pgtype.UUID
+	Title             string
+	Amount            string
+	Currency          string
+	Stage             string
+	ExpectedCloseDate pgtype.Date
+	LostReason        pgtype.Text
+	AssigneeUserID    pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+func (q *Queries) ListTeamDeals(ctx context.Context, arg ListTeamDealsParams) ([]ListTeamDealsRow, error) {
+	rows, err := q.db.Query(ctx, listTeamDeals, arg.UserID, arg.CompanyID, arg.TeamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTeamDealsRow
+	for rows.Next() {
+		var i ListTeamDealsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.TeamID,
+			&i.ContactID,
+			&i.Title,
+			&i.Amount,
+			&i.Currency,
+			&i.Stage,
+			&i.ExpectedCloseDate,
+			&i.LostReason,
+			&i.AssigneeUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockActiveDealTeam = `-- name: LockActiveDealTeam :one
 SELECT id
 FROM dealforge.teams

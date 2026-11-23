@@ -232,6 +232,20 @@ contacts, all return 404. Unexpected database failures return a generic 500.
 Run `go test -count=1 -run TestCreateDealInPostgres ./...` from `backend/`
 with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
 
+## Deal listing
+
+An authenticated `GET /api/v1/companies/{companyID}/teams/{teamID}/deals`
+returns the same deal fields as creation, ordered by `created_at` descending
+and then `id` ascending. Amounts are decimal strings. The session user must
+belong to the active company and the active team as a manager or salesperson.
+Authorized teams with no deals return 200 with `[]`. Missing, archived, or
+inaccessible companies and teams return the same 404. Malformed IDs return
+400 and missing or invalid sessions return 401. If supplied,
+`X-DealForge-Expected-User-ID` must match the session or the request returns 412.
+
+Run `go test -count=1 -run TestListDealsInPostgres ./...` from `backend/`
+with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.
