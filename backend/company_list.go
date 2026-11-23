@@ -23,6 +23,7 @@ type companyStore interface {
 	dealLister
 	dealStageUpdater
 	taskCreator
+	taskLister
 }
 
 type companyMembership struct {

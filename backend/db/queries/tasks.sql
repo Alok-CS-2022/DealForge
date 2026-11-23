@@ -21,3 +21,20 @@ VALUES (
         'status', sqlc.arg(status)::text
     )
 );
+
+-- name: ListDealTasks :many
+SELECT task.id, d.id AS deal_id, d.team_id, COALESCE(task.title, '') AS title,
+       task.due_date, COALESCE(task.status, '') AS status, task.completed_at,
+       task.assignee_user_id, task.created_at, task.updated_at
+FROM dealforge.deals AS d
+JOIN dealforge.teams AS t ON t.company_id = d.company_id AND t.id = d.team_id
+JOIN dealforge.companies AS c ON c.id = t.company_id
+JOIN dealforge.company_memberships AS cm
+  ON cm.company_id = c.id AND cm.user_id = sqlc.arg(user_id)
+JOIN dealforge.team_memberships AS tm
+  ON tm.company_id = t.company_id AND tm.team_id = t.id AND tm.user_id = cm.user_id
+  AND tm.role IN ('manager', 'salesperson')
+LEFT JOIN dealforge.tasks AS task ON task.team_id = d.team_id AND task.deal_id = d.id
+WHERE d.company_id = sqlc.arg(company_id) AND d.team_id = sqlc.arg(team_id)
+  AND d.id = sqlc.arg(deal_id) AND c.archived_at IS NULL AND t.archived_at IS NULL
+ORDER BY task.due_date ASC, task.created_at ASC, task.id ASC;

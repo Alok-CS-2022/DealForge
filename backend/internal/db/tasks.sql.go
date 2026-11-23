@@ -53,6 +53,80 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (Dealfor
 	return i, err
 }
 
+const listDealTasks = `-- name: ListDealTasks :many
+SELECT task.id, d.id AS deal_id, d.team_id, COALESCE(task.title, '') AS title,
+       task.due_date, COALESCE(task.status, '') AS status, task.completed_at,
+       task.assignee_user_id, task.created_at, task.updated_at
+FROM dealforge.deals AS d
+JOIN dealforge.teams AS t ON t.company_id = d.company_id AND t.id = d.team_id
+JOIN dealforge.companies AS c ON c.id = t.company_id
+JOIN dealforge.company_memberships AS cm
+  ON cm.company_id = c.id AND cm.user_id = $1
+JOIN dealforge.team_memberships AS tm
+  ON tm.company_id = t.company_id AND tm.team_id = t.id AND tm.user_id = cm.user_id
+  AND tm.role IN ('manager', 'salesperson')
+LEFT JOIN dealforge.tasks AS task ON task.team_id = d.team_id AND task.deal_id = d.id
+WHERE d.company_id = $2 AND d.team_id = $3
+  AND d.id = $4 AND c.archived_at IS NULL AND t.archived_at IS NULL
+ORDER BY task.due_date ASC, task.created_at ASC, task.id ASC
+`
+
+type ListDealTasksParams struct {
+	UserID    pgtype.UUID
+	CompanyID pgtype.UUID
+	TeamID    pgtype.UUID
+	DealID    pgtype.UUID
+}
+
+type ListDealTasksRow struct {
+	ID             pgtype.UUID
+	DealID         pgtype.UUID
+	TeamID         pgtype.UUID
+	Title          string
+	DueDate        pgtype.Date
+	Status         string
+	CompletedAt    pgtype.Timestamptz
+	AssigneeUserID pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+func (q *Queries) ListDealTasks(ctx context.Context, arg ListDealTasksParams) ([]ListDealTasksRow, error) {
+	rows, err := q.db.Query(ctx, listDealTasks,
+		arg.UserID,
+		arg.CompanyID,
+		arg.TeamID,
+		arg.DealID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDealTasksRow
+	for rows.Next() {
+		var i ListDealTasksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DealID,
+			&i.TeamID,
+			&i.Title,
+			&i.DueDate,
+			&i.Status,
+			&i.CompletedAt,
+			&i.AssigneeUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const logTaskCreation = `-- name: LogTaskCreation :exec
 INSERT INTO dealforge.activity_logs (
     company_id, actor_user_id, action, entity_type, entity_id, changes

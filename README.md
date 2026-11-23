@@ -329,6 +329,24 @@ return a generic 500.
 Run `go test -count=1 -run TestCreateTaskInPostgres ./...` from `backend/`
 with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
 
+## Task listing
+
+An authenticated `GET /api/v1/companies/{companyID}/teams/{teamID}/deals/{dealID}/tasks`
+returns a JSON array with the same task fields as creation. Tasks are ordered
+by `due_date`, then `created_at`, then `id`, all ascending. An authorized deal
+with no tasks returns HTTP 200 with `[]`.
+
+The session user must belong to the active company and to the active team
+as a manager or salesperson. Company admins also need team membership. The
+deal must belong to that company and team. Missing or inaccessible deals and
+missing, archived, or inaccessible companies and teams all return the same
+404. Malformed IDs return 400, missing or invalid sessions return 401, and
+database failures return a generic 500. If supplied,
+`X-DealForge-Expected-User-ID` must match the session or the request returns 412.
+
+Run `go test -count=1 -run TestListTasksInPostgres ./...` from `backend/`
+with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.

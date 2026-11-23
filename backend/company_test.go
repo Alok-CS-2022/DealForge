@@ -54,6 +54,10 @@ func (f companyCreatorFunc) CreateDealTask(context.Context, pgtype.UUID, db.Crea
 	return db.DealforgeTask{}, errors.New("unexpected task creation call")
 }
 
+func (f companyCreatorFunc) ListDealTasks(context.Context, db.ListDealTasksParams) ([]db.ListDealTasksRow, error) {
+	return nil, errors.New("unexpected task listing call")
+}
+
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
 	if err := creator.Scan(companyTestUserID); err != nil {
