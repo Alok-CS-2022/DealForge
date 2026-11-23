@@ -42,3 +42,15 @@ LEFT JOIN dealforge.deals AS d ON d.company_id = t.company_id AND d.team_id = t.
 WHERE t.company_id = sqlc.arg(company_id) AND t.id = sqlc.arg(team_id)
   AND c.archived_at IS NULL AND t.archived_at IS NULL
 ORDER BY d.created_at DESC, d.id ASC;
+
+-- name: UpdateDealStage :one
+UPDATE dealforge.deals
+SET stage = sqlc.arg(stage)::text,
+    lost_reason = CASE WHEN sqlc.arg(stage)::text = 'lost'
+                       THEN COALESCE(sqlc.narg(lost_reason)::text, lost_reason)
+                       ELSE NULL END,
+    updated_at = clock_timestamp()
+WHERE company_id = sqlc.arg(company_id) AND team_id = sqlc.arg(team_id) AND id = sqlc.arg(deal_id)
+RETURNING id, company_id, team_id, contact_id, title, amount::text AS amount,
+          currency, stage, expected_close_date, lost_reason, assignee_user_id,
+          created_at, updated_at;

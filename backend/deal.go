@@ -73,9 +73,7 @@ func (input dealInput) validate() (db.CreateDealParams, string) {
 	if input.Stage != nil {
 		params.Stage = strings.ToLower(strings.TrimSpace(*input.Stage))
 	}
-	switch params.Stage {
-	case "new", "qualified", "proposal", "won", "lost":
-	default:
+	if !validDealStage(params.Stage) {
 		return params, "invalid deal stage"
 	}
 	if input.ExpectedCloseDate != nil {
@@ -85,17 +83,31 @@ func (input dealInput) validate() (db.CreateDealParams, string) {
 		}
 		params.ExpectedCloseDate = pgtype.Date{Time: date, Valid: true}
 	}
-	if input.LostReason != nil {
-		if params.Stage != "lost" {
-			return params, "lost_reason requires the lost stage"
-		}
-		reason := strings.TrimSpace(*input.LostReason)
-		if reason == "" || utf8.RuneCountInString(reason) > 500 || strings.ContainsRune(reason, 0) {
-			return params, "lost_reason must be 1-500 characters"
-		}
-		params.LostReason = pgtype.Text{String: reason, Valid: true}
+	var message string
+	params.LostReason, message = validateDealLostReason(params.Stage, input.LostReason)
+	return params, message
+}
+
+func validDealStage(stage string) bool {
+	switch stage {
+	case "new", "qualified", "proposal", "won", "lost":
+		return true
 	}
-	return params, ""
+	return false
+}
+
+func validateDealLostReason(stage string, input *string) (pgtype.Text, string) {
+	if input == nil {
+		return pgtype.Text{}, ""
+	}
+	if stage != "lost" {
+		return pgtype.Text{}, "lost_reason requires the lost stage"
+	}
+	reason := strings.TrimSpace(*input)
+	if reason == "" || utf8.RuneCountInString(reason) > 500 || strings.ContainsRune(reason, 0) {
+		return pgtype.Text{}, "lost_reason must be 1-500 characters"
+	}
+	return pgtype.Text{String: reason, Valid: true}, ""
 }
 
 func createDeal(deals dealCreator) func(http.ResponseWriter, *http.Request, publicUser) {
@@ -143,19 +155,7 @@ func (c postgresCompanyStore) CreateTeamDeal(ctx context.Context, userID pgtype.
 	var deal db.CreateDealRow
 	err := pgx.BeginFunc(ctx, c.database, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-		// Lock company, then team. Recheck membership in separate statements after the locks.
-		if _, err := queries.LockActiveCompanyForMember(ctx, db.LockActiveCompanyForMemberParams{CompanyID: params.CompanyID, UserID: userID}); err != nil {
-			return err
-		}
-		if _, err := queries.LockActiveDealTeam(ctx, db.LockActiveDealTeamParams{CompanyID: params.CompanyID, ID: params.TeamID}); err != nil {
-			return err
-		}
-		if _, err := queries.LockCompanyMembership(ctx, db.LockCompanyMembershipParams{CompanyID: params.CompanyID, UserID: userID}); err != nil {
-			return err
-		}
-		if _, err := queries.LockDealTeamMembership(ctx, db.LockDealTeamMembershipParams{
-			CompanyID: params.CompanyID, TeamID: params.TeamID, UserID: userID,
-		}); err != nil {
+		if err := lockDealWriteScope(ctx, queries, params.CompanyID, params.TeamID, userID); err != nil {
 			return err
 		}
 		var err error
@@ -166,4 +166,21 @@ func (c postgresCompanyStore) CreateTeamDeal(ctx context.Context, userID pgtype.
 		return db.CreateDealRow{}, err
 	}
 	return deal, nil
+}
+
+func lockDealWriteScope(ctx context.Context, queries *db.Queries, companyID, teamID, userID pgtype.UUID) error {
+	// Lock company, then team. Recheck membership in separate statements after the locks.
+	if _, err := queries.LockActiveCompanyForMember(ctx, db.LockActiveCompanyForMemberParams{CompanyID: companyID, UserID: userID}); err != nil {
+		return err
+	}
+	if _, err := queries.LockActiveDealTeam(ctx, db.LockActiveDealTeamParams{CompanyID: companyID, ID: teamID}); err != nil {
+		return err
+	}
+	if _, err := queries.LockCompanyMembership(ctx, db.LockCompanyMembershipParams{CompanyID: companyID, UserID: userID}); err != nil {
+		return err
+	}
+	_, err := queries.LockDealTeamMembership(ctx, db.LockDealTeamMembershipParams{
+		CompanyID: companyID, TeamID: teamID, UserID: userID,
+	})
+	return err
 }

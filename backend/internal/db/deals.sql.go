@@ -199,3 +199,67 @@ func (q *Queries) LockDealTeamMembership(ctx context.Context, arg LockDealTeamMe
 	err := row.Scan(&id)
 	return id, err
 }
+
+const updateDealStage = `-- name: UpdateDealStage :one
+UPDATE dealforge.deals
+SET stage = $1::text,
+    lost_reason = CASE WHEN $1::text = 'lost'
+                       THEN COALESCE($2::text, lost_reason)
+                       ELSE NULL END,
+    updated_at = clock_timestamp()
+WHERE company_id = $3 AND team_id = $4 AND id = $5
+RETURNING id, company_id, team_id, contact_id, title, amount::text AS amount,
+          currency, stage, expected_close_date, lost_reason, assignee_user_id,
+          created_at, updated_at
+`
+
+type UpdateDealStageParams struct {
+	Stage      string
+	LostReason pgtype.Text
+	CompanyID  pgtype.UUID
+	TeamID     pgtype.UUID
+	DealID     pgtype.UUID
+}
+
+type UpdateDealStageRow struct {
+	ID                pgtype.UUID
+	CompanyID         pgtype.UUID
+	TeamID            pgtype.UUID
+	ContactID         pgtype.UUID
+	Title             string
+	Amount            string
+	Currency          string
+	Stage             string
+	ExpectedCloseDate pgtype.Date
+	LostReason        pgtype.Text
+	AssigneeUserID    pgtype.UUID
+	CreatedAt         pgtype.Timestamptz
+	UpdatedAt         pgtype.Timestamptz
+}
+
+func (q *Queries) UpdateDealStage(ctx context.Context, arg UpdateDealStageParams) (UpdateDealStageRow, error) {
+	row := q.db.QueryRow(ctx, updateDealStage,
+		arg.Stage,
+		arg.LostReason,
+		arg.CompanyID,
+		arg.TeamID,
+		arg.DealID,
+	)
+	var i UpdateDealStageRow
+	err := row.Scan(
+		&i.ID,
+		&i.CompanyID,
+		&i.TeamID,
+		&i.ContactID,
+		&i.Title,
+		&i.Amount,
+		&i.Currency,
+		&i.Stage,
+		&i.ExpectedCloseDate,
+		&i.LostReason,
+		&i.AssigneeUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

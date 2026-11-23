@@ -263,6 +263,43 @@ inaccessible companies and teams return the same 404. Malformed IDs return
 Run `go test -count=1 -run TestListDealsInPostgres ./...` from `backend/`
 with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
 
+## Deal stage updates
+
+Send an authenticated
+`PATCH /api/v1/companies/{companyID}/teams/{teamID}/deals/{dealID}/stage`
+with one `X-DealForge-Expected-User-ID` header matching `GET /api/v1/auth/me`.
+The session user must belong to the active company and the active team as a
+manager or salesperson. Company admins need team membership as well.
+
+The JSON body requires `stage` and optionally accepts `lost_reason`.
+Any move among `new`, `qualified`, `proposal`, `won`, and `lost` is allowed,
+including reopening a deal or repeating its current stage. Stage names are
+trimmed and matched case-insensitively. A supplied loss reason is trimmed,
+must contain 1–500 characters, and is accepted only for `lost`. Omitting it
+or sending `null` leaves an existing loss reason in place when the deal stays
+`lost`. Moving out of `lost` clears the reason. Moving into `lost` without a
+reason leaves it unset.
+
+HTTP 200 returns the same deal fields as creation, including the exact
+decimal amount string and a refreshed `updated_at`.
+
+Concurrent updates to the same deal are applied one at a time. The last
+successfully applied update determines the stage. The account header checks
+session identity only. The endpoint has no deal version or `If-Match`
+precondition, so a request based on an older view can overwrite a more
+recent change. A successful response describes the deal at the time of that
+update, and another update may already be waiting to change it again.
+
+Invalid input or malformed IDs return 400, invalid sessions return 401,
+cross-origin writes return 403, and a missing or mismatched account header
+returns 412. Missing, archived, or inaccessible companies and teams, and
+missing or out-of-scope deals, return the same 404. Unexpected database
+failures return a generic 500.
+
+Run `go test -count=1 -run TestUpdateDealStage.*InPostgres ./...` from
+`backend/` with the local PostgreSQL settings and
+`DEALFORGE_COMPANY_INTEGRATION=1`.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.
