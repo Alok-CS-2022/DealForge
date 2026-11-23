@@ -8,7 +8,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 
 .auth-page {
   display: grid;
@@ -78,7 +78,7 @@ fieldset {
 .field { display: grid; gap: .4rem; }
 label { font-size: .9rem; font-weight: 650; }
 
-input, select {
+input, select, textarea {
   width: 100%;
   min-height: 2.8rem;
   padding: .62rem .75rem;
@@ -88,7 +88,7 @@ input, select {
   color: inherit;
 }
 
-input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible, h1:focus-visible {
+input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible, h1:focus-visible {
   outline: 2px solid #3158be;
   outline-offset: 3px;
 }
@@ -179,18 +179,18 @@ button:disabled { background: #5367a0; cursor: wait; }
 .workspace-details dd { margin: .25rem 0 0; font-weight: 650; overflow-wrap: anywhere; }
 .company-selector { margin-bottom: 1.25rem; }
 
-.contacts {
+.contacts, .deals {
   margin-top: 1.5rem;
   padding-top: 1.25rem;
   border-top: 1px solid #d5ddec;
   overflow-wrap: anywhere;
 }
 
-.contacts h2, .contacts h3 { margin: 0 0 .75rem; }
-.contacts h2 { font-size: 1.35rem; }
-.contacts h3 { font-size: 1rem; }
-.contacts > p:not(.form-error) { color: #505b72; }
-.contacts-list {
+.contacts h2, .contacts h3, .deals h2, .deals h3 { margin: 0 0 .75rem; }
+.contacts h2, .deals h2 { font-size: 1.35rem; }
+.contacts h3, .deals h3 { font-size: 1rem; }
+.contacts > p:not(.form-error), .deals p:not(.form-error) { color: #505b72; }
+.contacts-list, .deals-list {
   display: grid;
   gap: .75rem;
   margin: 0 0 1.5rem;
@@ -198,14 +198,16 @@ button:disabled { background: #5367a0; cursor: wait; }
   list-style: none;
 }
 
-.contacts-list li {
+.contacts-list li, .deals-list li {
   padding: .85rem;
   border: 1px solid #d5ddec;
   border-radius: .55rem;
   background: #fbfcff;
 }
 
-.contacts-list dl { display: grid; gap: .4rem; margin: 0; }
-.contacts-list dt { color: #505b72; font-size: .85rem; }
-.contacts-list dd { margin: .125rem 0 0; }
-.contacts form { margin-top: 1.25rem; }
+.contacts-list dl, .deals-list dl { display: grid; gap: .4rem; margin: 0; }
+.contacts-list dt, .deals-list dt { color: #505b72; font-size: .85rem; }
+.contacts-list dd, .deals-list dd { margin: .125rem 0 0; }
+.contacts form, .deals form { margin-top: 1.25rem; }
+.deals > .field { margin-bottom: 1rem; }
+.deals textarea { resize: vertical; }

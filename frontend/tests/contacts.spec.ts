@@ -16,6 +16,10 @@ const expectedUser = 'x-dealforge-expected-user-id';
 const contacts = (page: Page) => page.getByRole('region', { name: 'Contacts' });
 const form = (page: Page) => page.getByRole('form', { name: 'Add contact' });
 
+test.beforeEach(async ({ context }) => {
+  await context.route('**/api/v1/companies/*/teams', (route) => route.fulfill({ json: [] }));
+});
+
 function gate() {
   let release = () => {};
   const wait = new Promise<void>((resolve) => { release = resolve; });

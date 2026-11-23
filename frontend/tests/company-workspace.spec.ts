@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/v1/companies/*/contacts', (route) => route.fulfill({ json: [] }));
+  await page.route('**/api/v1/companies/*/teams', (route) => route.fulfill({ json: [] }));
 });
 
 const companiesPath = '**/api/v1/companies';

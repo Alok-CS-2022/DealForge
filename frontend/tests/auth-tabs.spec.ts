@@ -6,6 +6,7 @@ const expectedUserHeader = 'x-dealforge-expected-user-id';
 
 test.beforeEach(async ({ context }) => {
   await context.route('**/api/v1/companies/*/contacts', (route) => route.fulfill({ json: [] }));
+  await context.route('**/api/v1/companies/*/teams', (route) => route.fulfill({ json: [] }));
 });
 const alice = {
   id: 'd008aa53-5fce-42ec-bdaf-d9495dcaaf24',
