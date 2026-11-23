@@ -30,6 +30,8 @@ export type DealInput = Pick<Deal, 'title' | 'contact_id' | 'amount' | 'currency
   expected_close_date?: string;
   lost_reason?: string;
 };
+export type DealStageInput = Pick<Deal, 'stage'> & { lost_reason?: string };
+type DealMutation = { method: 'POST'; body: DealInput } | { method: 'PATCH'; body: DealStageInput };
 
 export const stages = ['new', 'qualified', 'proposal', 'won', 'lost'] as const;
 type DealStage = typeof stages[number];
@@ -78,15 +80,15 @@ export function useDealRequests({
     };
   }, [sessionSignal]);
 
-  const request = useCallback(async (url: string, signal: AbortSignal, body?: DealInput) => {
+  const request = useCallback(async (url: string, signal: AbortSignal, mutation?: DealMutation) => {
     if (signal.aborted) return;
     const headers: Record<string, string> = { 'X-DealForge-Expected-User-ID': userID };
-    if (body) headers['Content-Type'] = 'application/json';
+    if (mutation) headers['Content-Type'] = 'application/json';
     const response = await fetch(url, {
-      method: body ? 'POST' : 'GET',
+      method: mutation?.method ?? 'GET',
       credentials: 'same-origin',
       headers,
-      body: body ? JSON.stringify(body) : undefined,
+      body: mutation ? JSON.stringify(mutation.body) : undefined,
       signal,
     });
     if (signal.aborted) return;

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DealForm } from './deal-form';
+import { DealStageEditor, type StageEdit } from './deal-stage-editor';
 import {
   isDeal, isDealContact, stageLabel, useDealRequests,
-  type Deal, type DealContact, type DealInput, type DealWorkspaceProps, type LoadResult,
+  type Deal, type DealContact, type DealInput, type DealStageInput, type DealWorkspaceProps, type LoadResult,
 } from './deal-workspace-api';
 
 type TeamDealsProps = DealWorkspaceProps & { teamID: string; onReloadTeams: () => void };
@@ -20,8 +21,11 @@ export function TeamDeals(props: TeamDealsProps) {
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(false);
   const [formError, setFormError] = useState('');
+  const [stageEdit, setStageEdit] = useState<StageEdit | null>(null);
+  const [stageUnavailable, setStageUnavailable] = useState(false);
   const submitting = useRef(false);
   const createButton = useRef<HTMLButtonElement | null>(null);
+  const stageSaving = stageEdit?.status === 'saving';
 
   const loadDeals = useCallback(async (signal: AbortSignal) => {
     try {
@@ -110,7 +114,7 @@ export function TeamDeals(props: TeamDealsProps) {
     setCreated(false);
     setFormError('');
     try {
-      const response = await request(dealURL, signal, input);
+      const response = await request(dealURL, signal, { method: 'POST', body: input });
       if (!response || signal.aborted) return;
       if (response.status === 201) {
         setFormOpen(false);
@@ -137,11 +141,60 @@ export function TeamDeals(props: TeamDealsProps) {
     }
   }
 
+  function toggleStageEditor(dealID: string) {
+    if (scope.current?.aborted !== false || submitting.current || authPending) return;
+    setStageUnavailable(false);
+    setStageEdit((current) => current?.dealID === dealID && current.status === 'editing'
+      ? null : { dealID, status: 'editing' });
+  }
+
+  async function updateStage(dealID: string, input: DealStageInput) {
+    const signal = scope.current;
+    if (!signal || signal.aborted || submitting.current || authPending || deals.status !== 'ready' ||
+      stageEdit?.dealID !== dealID || stageEdit.status !== 'editing') return;
+    submitting.current = true;
+    setStageEdit({ dealID, status: 'saving' });
+    const unconfirmed = 'Could not confirm the stage change. Reload the page to check the current stage.';
+    const showError = (error: string) => setStageEdit({ dealID, status: 'editing', error });
+    try {
+      const response = await request(`${dealURL}/${encodeURIComponent(dealID)}/stage`, signal, { method: 'PATCH', body: input });
+      if (!response || signal.aborted) return;
+      if (response.status === 404 || response.status === 403) {
+        setStageEdit(null);
+        setStageUnavailable(true);
+        setDeals({ status: 'loading' });
+        await loadDeals(signal);
+      } else if (response.status === 400) {
+        showError('Check the stage and lost reason and try again.');
+      } else if (response.status === 200) {
+        const updated: unknown = await response.json();
+        if (signal.aborted) return;
+        if (!isDeal(updated, companyID, teamID) || updated.id !== dealID) {
+          showError(unconfirmed);
+          return;
+        }
+        setDeals((current) => current.status === 'ready'
+          ? { status: 'ready', items: current.items.map((deal) => deal.id === dealID ? updated : deal) }
+          : current);
+        setStageEdit({ dealID, status: 'saved' });
+      } else {
+        showError(unconfirmed);
+      }
+    } catch {
+      if (!signal.aborted) showError(unconfirmed);
+    } finally {
+      submitting.current = false;
+    }
+  }
+
   const contactNames = new Map(contacts.status === 'ready' ? contacts.items.map((contact) => [contact.id, contact.name]) : []);
 
   return (
     <>
       {created && <p role="status">Deal created.</p>}
+      {stageUnavailable && deals.status !== 'unavailable' && (
+        <p className="form-error" role="alert">This deal is no longer available.</p>
+      )}
       {deals.status === 'loading' && <p role="status">Loading deals…</p>}
       {deals.status === 'unavailable' && (
         <>
@@ -169,11 +222,14 @@ export function TeamDeals(props: TeamDealsProps) {
                     {deal.expected_close_date && <div><dt>Expected closing date</dt><dd><time dateTime={deal.expected_close_date}>{deal.expected_close_date}</time></dd></div>}
                     {deal.lost_reason && <div><dt>Lost reason</dt><dd>{deal.lost_reason}</dd></div>}
                   </dl>
+                  <DealStageEditor deal={deal} edit={stageEdit?.dealID === deal.id ? stageEdit : null}
+                    disabled={authPending || saving || stageSaving}
+                    onToggle={() => toggleStageEditor(deal.id)} onSave={(input) => void updateStage(deal.id, input)} />
                 </li>
               ))}
             </ul>
           )}
-          <button type="button" ref={createButton} disabled={authPending || saving}
+          <button type="button" ref={createButton} disabled={authPending || saving || stageSaving}
             aria-expanded={formOpen} aria-controls="create-deal-panel"
             onClick={() => {
               if (!formOpen) {
@@ -194,10 +250,10 @@ export function TeamDeals(props: TeamDealsProps) {
                 )}
                 {contacts.status === 'ready' && contacts.items.length === 0 && <p>Add a contact in this company before creating a deal.</p>}
                 {contacts.status === 'ready' && contacts.items.length > 0 ? (
-                  <DealForm contacts={contacts.items} disabled={saving || authPending} saving={saving}
+                  <DealForm contacts={contacts.items} disabled={saving || authPending || stageSaving} saving={saving}
                     error={formError} onSubmit={createDeal} />
                 ) : contacts.status !== 'loading' && (
-                  <button type="button" disabled={authPending || saving} onClick={reloadContacts}>Reload contacts</button>
+                  <button type="button" disabled={authPending || saving || stageSaving} onClick={reloadContacts}>Reload contacts</button>
                 )}
               </>
             )}

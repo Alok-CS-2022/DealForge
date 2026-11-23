@@ -211,3 +211,5 @@ button:disabled { background: #5367a0; cursor: wait; }
 .contacts form, .deals form { margin-top: 1.25rem; }
 .deals > .field { margin-bottom: 1rem; }
 .deals textarea { resize: vertical; }
+.deal-stage-editor { margin-top: .75rem; }
+.deal-stage-editor form { margin-top: .75rem; }
