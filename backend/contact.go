@@ -62,7 +62,7 @@ func (input *contactInput) normalizeAndValidate() string {
 
 func createContact(contacts contactCreator) func(http.ResponseWriter, *http.Request, publicUser) {
 	return func(w http.ResponseWriter, r *http.Request, user publicUser) {
-		if !checkExpectedUser(w, r, user.ID, false) {
+		if !checkExpectedUser(w, r, user.ID, true) {
 			return
 		}
 		companyID, valid := contactCompanyPathID(r)

@@ -44,7 +44,7 @@ DealForge is a CRM for tracking customers and sales deals.
   only their 32-byte SHA-256 digests. The backend checks expiration and
   revocation on every session lookup and maintains `updated_at` on writes.
 - Tabs share the session cookie, so the browser sends its displayed user ID
-  as a precondition on company creation and listing. The server compares it
-  with the validated session, which determines authorization and creator
-  identity. A failed precondition makes the browser reload its session and
+  as a precondition when creating or listing companies and contacts. The
+  server compares it with the validated session, which determines authorization
+  and creator identity. A failed precondition makes the browser reload its session and
   company list before accepting another creation attempt.

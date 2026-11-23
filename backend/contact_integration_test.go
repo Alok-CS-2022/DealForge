@@ -43,11 +43,11 @@ func TestCreateContactInPostgres(t *testing.T) {
 	}
 
 	assertUnauthorizedSession(t, postContact(handler, companyID.String(), validContactJSON, nil))
-	if response := postContact(handler, companyID.String(), `{"name":"Ada","email":"invalid"}`, cookie); response.Code != http.StatusBadRequest {
+	if response := postContact(handler, companyID.String(), `{"name":"Ada","email":"invalid"}`, cookie, actor.String()); response.Code != http.StatusBadRequest {
 		t.Fatalf("expected invalid contact to return 400, got %d", response.Code)
 	}
 	for _, id := range []string{otherCompany.String(), archivedCompany.String(), "00000000-0000-0000-0000-000000000000"} {
-		response := postContact(handler, id, validContactJSON, cookie)
+		response := postContact(handler, id, validContactJSON, cookie, actor.String())
 		if response.Code != http.StatusNotFound || response.Body.String() != "{\"error\":\"company not found\"}\n" {
 			t.Fatalf("expected indistinguishable 404 for unavailable company, got %d", response.Code)
 		}
@@ -63,6 +63,13 @@ func TestCreateContactInPostgres(t *testing.T) {
 	checkCount(archivedCompany, 0)
 	checkCount(companyID, 0)
 
+	if _, err := tx.Exec(ctx, `INSERT INTO dealforge.company_memberships (company_id, user_id, role) VALUES ($1, $2, 'member')`,
+		secondCompany, outsider); err != nil {
+		t.Fatal("could not add shared company fixture membership")
+	}
+	assertCompanyPreconditionFailed(t, postContact(handler, secondCompany.String(), validContactJSON, otherCookie, actor.String()))
+	checkCount(secondCompany, 0)
+
 	// Seed mixed case directly to exercise the database index independently
 	// of the handler's lowercase normalization.
 	if _, err := queries.CreateContact(ctx, db.CreateContactParams{
@@ -70,22 +77,22 @@ func TestCreateContactInPostgres(t *testing.T) {
 	}); err != nil {
 		t.Fatal("could not seed existing contact")
 	}
-	duplicate := postContact(handler, companyID.String(), validContactJSON, cookie)
+	duplicate := postContact(handler, companyID.String(), validContactJSON, cookie, actor.String())
 	if duplicate.Code != http.StatusConflict || duplicate.Body.String() != "{\"error\":\"contact email already exists in this company\"}\n" {
 		t.Fatalf("expected case-insensitive duplicate to return 409, got %d", duplicate.Code)
 	}
 	checkCount(companyID, 1)
-	if response := postContact(handler, companyID.String(), validContactJSON, otherCookie); response.Code != http.StatusNotFound {
+	if response := postContact(handler, companyID.String(), validContactJSON, otherCookie, outsider.String()); response.Code != http.StatusNotFound {
 		t.Fatalf("duplicate must remain hidden from non-members, got %d", response.Code)
 	}
-	if response := postContact(handler, secondCompany.String(), validContactJSON, cookie); response.Code != http.StatusCreated {
+	if response := postContact(handler, secondCompany.String(), validContactJSON, cookie, actor.String()); response.Code != http.StatusCreated {
 		t.Fatalf("same email in another authorized company returned %d, want 201", response.Code)
 	}
 	checkCount(secondCompany, 1)
 	checkCount(otherCompany, 0)
 
 	body := `{"name":" Grace Hopper ","email":" GRACE@EXAMPLE.TEST ","phone":" +1 555 0100 ","company_name":" Navy "}`
-	response := postContact(handler, companyID.String(), body, cookie)
+	response := postContact(handler, companyID.String(), body, cookie, actor.String())
 	var result contactResponse
 	if response.Code != http.StatusCreated || json.Unmarshal(response.Body.Bytes(), &result) != nil ||
 		!result.ID.Valid || result.CompanyID != companyID || result.Name != "Grace Hopper" || result.Email != "grace@example.test" ||

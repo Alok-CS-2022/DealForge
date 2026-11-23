@@ -1,5 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/v1/companies/*/contacts', (route) => route.fulfill({ json: [] }));
+});
+
 const companiesPath = '**/api/v1/companies';
 const workspace = {
   company: { id: 'f1654ebb-5a4e-40a6-a691-45c01ac84daf', name: 'Northwind' },
@@ -58,7 +62,7 @@ test('creates a company only on submit and shows the returned workspace', async 
   }
   const title = page.getByRole('heading', { name: 'Northwind', exact: true });
   await expect(title).toBeFocused();
-  await expect(page.getByRole('status')).toHaveText('Workspace created.');
+  await expect(page.getByText('Workspace created.')).toBeVisible();
   await expect(page.getByLabel('Company', { exact: true })).toHaveValue(workspace.company.id);
   await expect(page.getByText('Admin', { exact: true })).toBeVisible();
   await expect(page.getByText('General', { exact: true })).toBeVisible();

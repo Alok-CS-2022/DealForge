@@ -178,3 +178,34 @@ button:disabled { background: #5367a0; cursor: wait; }
 .workspace-details dt { color: #505b72; font-size: .9rem; }
 .workspace-details dd { margin: .25rem 0 0; font-weight: 650; overflow-wrap: anywhere; }
 .company-selector { margin-bottom: 1.25rem; }
+
+.contacts {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid #d5ddec;
+  overflow-wrap: anywhere;
+}
+
+.contacts h2, .contacts h3 { margin: 0 0 .75rem; }
+.contacts h2 { font-size: 1.35rem; }
+.contacts h3 { font-size: 1rem; }
+.contacts > p:not(.form-error) { color: #505b72; }
+.contacts-list {
+  display: grid;
+  gap: .75rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.contacts-list li {
+  padding: .85rem;
+  border: 1px solid #d5ddec;
+  border-radius: .55rem;
+  background: #fbfcff;
+}
+
+.contacts-list dl { display: grid; gap: .4rem; margin: 0; }
+.contacts-list dt { color: #505b72; font-size: .85rem; }
+.contacts-list dd { margin: .125rem 0 0; }
+.contacts form { margin-top: 1.25rem; }

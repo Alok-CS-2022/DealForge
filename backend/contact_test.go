@@ -51,7 +51,7 @@ func TestCreateContactNormalizesInputAndUsesSessionActor(t *testing.T) {
 	}}
 	handler := routes(nil, contactTestSession(t), store, true)
 	response := postContact(handler, contactCompanyID,
-		`{"name":" Ada Lovelace ","email":" ADA@EXAMPLE.TEST ","phone":" +44 20 1234 ","company_name":" "}`, companyTestCookie())
+		`{"name":" Ada Lovelace ","email":" ADA@EXAMPLE.TEST ","phone":" +44 20 1234 ","company_name":" "}`, companyTestCookie(), companyTestUserID)
 	var result map[string]any
 	if response.Code != http.StatusCreated || json.Unmarshal(response.Body.Bytes(), &result) != nil ||
 		response.Header().Get("Content-Type") != "application/json" || response.Header().Get("Cache-Control") != "no-store" ||
@@ -68,6 +68,7 @@ func TestCreateContactRejectsInvalidRequests(t *testing.T) {
 	}}
 	handler := routes(nil, contactTestSession(t), store, true)
 	assertUnauthorizedSession(t, postContact(handler, contactCompanyID, validContactJSON, nil))
+	assertCompanyPreconditionFailed(t, postContact(handler, contactCompanyID, validContactJSON, companyTestCookie()))
 	for name, body := range map[string]string{
 		"blank name":    `{"name":"  ","email":"ada@example.test"}`,
 		"invalid email": `{"name":"Ada","email":"Ada <ada@example.test>"}`,
@@ -79,12 +80,12 @@ func TestCreateContactRejectsInvalidRequests(t *testing.T) {
 		"trailing JSON": validContactJSON + `{}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			if response := postContact(handler, contactCompanyID, body, companyTestCookie()); response.Code != http.StatusBadRequest {
+			if response := postContact(handler, contactCompanyID, body, companyTestCookie(), companyTestUserID); response.Code != http.StatusBadRequest {
 				t.Fatalf("expected 400, got %d", response.Code)
 			}
 		})
 	}
-	if response := postContact(handler, "not-a-uuid", validContactJSON, companyTestCookie()); response.Code != http.StatusBadRequest {
+	if response := postContact(handler, "not-a-uuid", validContactJSON, companyTestCookie(), companyTestUserID); response.Code != http.StatusBadRequest {
 		t.Fatalf("invalid company ID returned %d, want 400", response.Code)
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/companies/"+contactCompanyID+"/contacts", strings.NewReader(validContactJSON))
@@ -119,7 +120,7 @@ func TestCreateContactMapsStoreErrors(t *testing.T) {
 			store := contactCreatorFunc{create: func(context.Context, pgtype.UUID, db.CreateContactParams) (db.DealforgeContact, error) {
 				return db.DealforgeContact{}, test.err
 			}}
-			response := postContact(routes(nil, contactTestSession(t), store, true), contactCompanyID, validContactJSON, companyTestCookie())
+			response := postContact(routes(nil, contactTestSession(t), store, true), contactCompanyID, validContactJSON, companyTestCookie(), companyTestUserID)
 			if response.Code != test.status || response.Body.String() != `{"error":"`+test.message+`"}`+"\n" {
 				t.Fatalf("expected safe %d, got %d", test.status, response.Code)
 			}
@@ -156,9 +157,12 @@ func TestCreateContactRechecksMembershipAfterLockingCompany(t *testing.T) {
 	}
 }
 
-func postContact(handler http.Handler, companyID, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
+func postContact(handler http.Handler, companyID, body string, cookie *http.Cookie, expectedIDs ...string) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/companies/"+companyID+"/contacts", strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/json")
+	for _, id := range expectedIDs {
+		request.Header.Add(expectedUserHeader, id)
+	}
 	if cookie != nil {
 		request.AddCookie(cookie)
 	}

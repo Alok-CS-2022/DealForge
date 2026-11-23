@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CompanyOnboarding } from './company-onboarding';
+import { Contacts } from './contacts';
 
 type Company = { id: string; name: string; role: 'admin' | 'member' };
 type CreatedCompany = { id: string; teamName: string };
@@ -150,6 +151,9 @@ export function CompanyWorkspace({
             <div><dt>Company role</dt><dd>{selection.role === 'admin' ? 'Admin' : 'Member'}</dd></div>
             {created?.id === selection.id && <div><dt>Initial team</dt><dd>{created.teamName}</dd></div>}
           </dl>
+          <Contacts key={selection.id} companyID={selection.id} userID={userID}
+            sessionSignal={sessionSignal} authPending={authPending !== null}
+            onSessionExpired={onSessionExpired} onSessionChanged={onSessionChanged} />
         </>
       ) : (
         <CompanyOnboarding userID={userID} sessionSignal={sessionSignal} authPending={authPending !== null}

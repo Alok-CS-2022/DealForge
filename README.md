@@ -184,8 +184,9 @@ New contacts have a null assignee. Invalid input returns 400, invalid
 sessions return 401, and blocked cross-origin requests return 403.
 Missing, archived, and inaccessible companies all return 404.
 A duplicate email within the company returns 409 regardless of case.
-An optional `X-DealForge-Expected-User-ID` header returns 412 if it
-disagrees with the authenticated session.
+Send one `X-DealForge-Expected-User-ID` header with the ID returned by
+`GET /api/v1/auth/me`. A missing or mismatched header returns 412 before
+any write. The authenticated session still determines company access.
 
 Run `go test -count=1 -run TestCreateContactInPostgres ./...` from
 `backend/` with the local PostgreSQL settings and

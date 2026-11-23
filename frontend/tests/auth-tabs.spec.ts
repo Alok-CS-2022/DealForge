@@ -3,6 +3,10 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 const mePath = '**/api/v1/auth/me';
 const companiesPath = '**/api/v1/companies';
 const expectedUserHeader = 'x-dealforge-expected-user-id';
+
+test.beforeEach(async ({ context }) => {
+  await context.route('**/api/v1/companies/*/contacts', (route) => route.fulfill({ json: [] }));
+});
 const alice = {
   id: 'd008aa53-5fce-42ec-bdaf-d9495dcaaf24',
   username: 'alice',
