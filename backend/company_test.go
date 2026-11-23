@@ -30,6 +30,10 @@ func (f companyCreatorFunc) CreateCompanyContact(context.Context, pgtype.UUID, d
 	return db.DealforgeContact{}, errors.New("unexpected contact creation call")
 }
 
+func (f companyCreatorFunc) ListCompanyContacts(context.Context, db.ListCompanyContactsParams) ([]db.ListCompanyContactsRow, error) {
+	return nil, errors.New("unexpected contact listing call")
+}
+
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
 	if err := creator.Scan(companyTestUserID); err != nil {

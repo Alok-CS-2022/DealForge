@@ -192,6 +192,18 @@ Run `go test -count=1 -run TestCreateContactInPostgres ./...` from
 `DEALFORGE_COMPANY_INTEGRATION=1` to test against PostgreSQL with
 transaction-scoped fixtures.
 
+## Contact listing
+
+An authenticated `GET /api/v1/companies/{companyID}/contacts` returns a JSON
+array with the same contact fields as creation, ordered by name and then ID.
+Members of active companies receive HTTP 200 with `[]` when there are no
+contacts. Missing, archived, and inaccessible companies all return 404.
+Invalid company IDs return 400 and missing or invalid sessions return 401.
+If supplied, `X-DealForge-Expected-User-ID` must match the session or the
+request returns 412.
+
+The `DEALFORGE_COMPANY_INTEGRATION=1` tests also cover this endpoint.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.

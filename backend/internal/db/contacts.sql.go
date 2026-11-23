@@ -48,6 +48,65 @@ func (q *Queries) CreateContact(ctx context.Context, arg CreateContactParams) (D
 	return i, err
 }
 
+const listCompanyContacts = `-- name: ListCompanyContacts :many
+SELECT ct.id, c.id AS company_id, COALESCE(ct.name, '') AS name,
+       COALESCE(ct.email, '') AS email, ct.phone, ct.company_name,
+       ct.assignee_user_id, ct.created_at, ct.updated_at
+FROM dealforge.companies AS c
+JOIN dealforge.company_memberships AS cm
+  ON cm.company_id = c.id AND cm.user_id = $1
+LEFT JOIN dealforge.contacts AS ct ON ct.company_id = c.id
+WHERE c.id = $2 AND c.archived_at IS NULL
+ORDER BY ct.name, ct.id
+`
+
+type ListCompanyContactsParams struct {
+	UserID    pgtype.UUID
+	CompanyID pgtype.UUID
+}
+
+type ListCompanyContactsRow struct {
+	ID             pgtype.UUID
+	CompanyID      pgtype.UUID
+	Name           string
+	Email          string
+	Phone          pgtype.Text
+	CompanyName    pgtype.Text
+	AssigneeUserID pgtype.UUID
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+}
+
+func (q *Queries) ListCompanyContacts(ctx context.Context, arg ListCompanyContactsParams) ([]ListCompanyContactsRow, error) {
+	rows, err := q.db.Query(ctx, listCompanyContacts, arg.UserID, arg.CompanyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCompanyContactsRow
+	for rows.Next() {
+		var i ListCompanyContactsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CompanyID,
+			&i.Name,
+			&i.Email,
+			&i.Phone,
+			&i.CompanyName,
+			&i.AssigneeUserID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockContactCompany = `-- name: LockContactCompany :one
 SELECT c.id
 FROM dealforge.companies AS c

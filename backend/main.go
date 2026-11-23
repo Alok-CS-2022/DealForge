@@ -52,6 +52,7 @@ func routes(users userCreator, sessions authSessionStore, companies companyStore
 	router.With(sameOrigin).Post("/api/v1/companies", requireSession(sessions, secureCookie, createCompany(companies)))
 	router.Get("/api/v1/companies", requireSession(sessions, secureCookie, listCompanies(companies)))
 	router.With(sameOrigin).Post("/api/v1/companies/{companyID}/contacts", requireSession(sessions, secureCookie, createContact(companies)))
+	router.Get("/api/v1/companies/{companyID}/contacts", requireSession(sessions, secureCookie, listContacts(companies)))
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if _, err := io.WriteString(w, "{\"status\":\"ok\"}\n"); err != nil {

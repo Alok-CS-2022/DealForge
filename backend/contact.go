@@ -65,9 +65,8 @@ func createContact(contacts contactCreator) func(http.ResponseWriter, *http.Requ
 		if !checkExpectedUser(w, r, user.ID, false) {
 			return
 		}
-		var companyID pgtype.UUID
-		pathID := chi.URLParam(r, "companyID")
-		if len(pathID) != 36 || companyID.Scan(pathID) != nil || !strings.EqualFold(companyID.String(), pathID) {
+		companyID, valid := contactCompanyPathID(r)
+		if !valid {
 			writeAuthError(w, http.StatusBadRequest, "invalid company ID")
 			return
 		}
@@ -109,6 +108,13 @@ func createContact(contacts contactCreator) func(http.ResponseWriter, *http.Requ
 			CreatedAt: contact.CreatedAt, UpdatedAt: contact.UpdatedAt,
 		})
 	}
+}
+
+func contactCompanyPathID(r *http.Request) (pgtype.UUID, bool) {
+	var id pgtype.UUID
+	value := chi.URLParam(r, "companyID")
+	valid := len(value) == 36 && id.Scan(value) == nil && strings.EqualFold(id.String(), value)
+	return id, valid
 }
 
 func (c postgresCompanyStore) CreateCompanyContact(ctx context.Context, userID pgtype.UUID, params db.CreateContactParams) (db.DealforgeContact, error) {
