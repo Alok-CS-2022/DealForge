@@ -34,6 +34,10 @@ func (f companyCreatorFunc) ListCompanyContacts(context.Context, db.ListCompanyC
 	return nil, errors.New("unexpected contact listing call")
 }
 
+func (f companyCreatorFunc) CreateTeamDeal(context.Context, pgtype.UUID, db.CreateDealParams) (db.CreateDealRow, error) {
+	return db.CreateDealRow{}, errors.New("unexpected deal creation call")
+}
+
 func TestCreateCompanyUsesAuthenticatedCreator(t *testing.T) {
 	var creator pgtype.UUID
 	if err := creator.Scan(companyTestUserID); err != nil {

@@ -117,3 +117,46 @@ func (q *Queries) ListCompaniesForUser(ctx context.Context, userID pgtype.UUID) 
 	}
 	return items, nil
 }
+
+const lockActiveCompanyForMember = `-- name: LockActiveCompanyForMember :one
+SELECT c.id
+FROM dealforge.companies AS c
+WHERE c.id = $1 AND c.archived_at IS NULL
+  AND EXISTS (
+    SELECT 1
+    FROM dealforge.company_memberships AS cm
+    WHERE cm.company_id = c.id AND cm.user_id = $2
+  )
+FOR UPDATE OF c
+`
+
+type LockActiveCompanyForMemberParams struct {
+	CompanyID pgtype.UUID
+	UserID    pgtype.UUID
+}
+
+func (q *Queries) LockActiveCompanyForMember(ctx context.Context, arg LockActiveCompanyForMemberParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockActiveCompanyForMember, arg.CompanyID, arg.UserID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockCompanyMembership = `-- name: LockCompanyMembership :one
+SELECT id
+FROM dealforge.company_memberships
+WHERE company_id = $1 AND user_id = $2
+FOR SHARE
+`
+
+type LockCompanyMembershipParams struct {
+	CompanyID pgtype.UUID
+	UserID    pgtype.UUID
+}
+
+func (q *Queries) LockCompanyMembership(ctx context.Context, arg LockCompanyMembershipParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockCompanyMembership, arg.CompanyID, arg.UserID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}

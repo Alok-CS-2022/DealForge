@@ -138,14 +138,14 @@ func (tx *contactMembershipChangedTx) Begin(context.Context) (pgx.Tx, error) { r
 func (tx *contactMembershipChangedTx) QueryRow(_ context.Context, query string, _ ...any) pgx.Row {
 	tx.queries = append(tx.queries, query)
 	if strings.Contains(query, "FOR SHARE") {
-		return missingContactMembership{}
+		return missingMembershipRow{}
 	}
 	return companyFixtureRow{}
 }
 
-type missingContactMembership struct{}
+type missingMembershipRow struct{}
 
-func (missingContactMembership) Scan(...any) error { return pgx.ErrNoRows }
+func (missingMembershipRow) Scan(...any) error { return pgx.ErrNoRows }
 
 func TestCreateContactRechecksMembershipAfterLockingCompany(t *testing.T) {
 	tx := &contactMembershipChangedTx{}

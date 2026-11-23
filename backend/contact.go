@@ -65,7 +65,7 @@ func createContact(contacts contactCreator) func(http.ResponseWriter, *http.Requ
 		if !checkExpectedUser(w, r, user.ID, true) {
 			return
 		}
-		companyID, valid := contactCompanyPathID(r)
+		companyID, valid := companyPathID(r)
 		if !valid {
 			writeAuthError(w, http.StatusBadRequest, "invalid company ID")
 			return
@@ -110,9 +110,12 @@ func createContact(contacts contactCreator) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-func contactCompanyPathID(r *http.Request) (pgtype.UUID, bool) {
+func companyPathID(r *http.Request) (pgtype.UUID, bool) {
+	return parseResourceID(chi.URLParam(r, "companyID"))
+}
+
+func parseResourceID(value string) (pgtype.UUID, bool) {
 	var id pgtype.UUID
-	value := chi.URLParam(r, "companyID")
 	valid := len(value) == 36 && id.Scan(value) == nil && strings.EqualFold(id.String(), value)
 	return id, valid
 }
@@ -121,7 +124,7 @@ func (c postgresCompanyStore) CreateCompanyContact(ctx context.Context, userID p
 	var contact db.DealforgeContact
 	err := pgx.BeginFunc(ctx, c.database, func(tx pgx.Tx) error {
 		queries := db.New(tx)
-		if _, err := queries.LockContactCompany(ctx, db.LockContactCompanyParams{CompanyID: params.CompanyID, UserID: userID}); err != nil {
+		if _, err := queries.LockActiveCompanyForMember(ctx, db.LockActiveCompanyForMemberParams{CompanyID: params.CompanyID, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return errContactCompanyUnavailable
 			}
@@ -129,7 +132,7 @@ func (c postgresCompanyStore) CreateCompanyContact(ctx context.Context, userID p
 		}
 		// Recheck in a separate statement after taking the company lock. The
 		// membership lock prevents deletion until this transaction finishes.
-		if _, err := queries.LockContactMembership(ctx, db.LockContactMembershipParams{CompanyID: params.CompanyID, UserID: userID}); err != nil {
+		if _, err := queries.LockCompanyMembership(ctx, db.LockCompanyMembershipParams{CompanyID: params.CompanyID, UserID: userID}); err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return errContactCompanyUnavailable
 			}

@@ -18,7 +18,7 @@ func listContacts(contacts contactLister) func(http.ResponseWriter, *http.Reques
 		if !checkExpectedUser(w, r, user.ID, false) {
 			return
 		}
-		companyID, valid := contactCompanyPathID(r)
+		companyID, valid := companyPathID(r)
 		if !valid {
 			writeAuthError(w, http.StatusBadRequest, "invalid company ID")
 			return

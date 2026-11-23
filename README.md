@@ -205,6 +205,33 @@ request returns 412.
 
 The `DEALFORGE_COMPANY_INTEGRATION=1` tests also cover this endpoint.
 
+## Deal creation
+
+Send an authenticated `POST /api/v1/companies/{companyID}/teams/{teamID}/deals`
+with one `X-DealForge-Expected-User-ID` header matching `GET /api/v1/auth/me`.
+The session user must belong to the active company and the active team as a
+manager or salesperson.
+
+The JSON body requires `title` (1–100 characters), `contact_id` (an existing
+contact in the company), `amount` (a nonnegative decimal **string** with up to
+15 whole digits and four fractional digits), and `currency` (three ASCII
+letters, normalized to uppercase). Optional `stage` defaults to `new` and
+accepts `new`, `qualified`, `proposal`, `won`, or `lost`. Optional
+`expected_close_date` uses `YYYY-MM-DD`. Optional `lost_reason` accepts
+1–500 characters and requires the `lost` stage.
+
+HTTP 201 returns the saved deal with `id`, `company_id`, `team_id`,
+`contact_id`, `title`, `amount` (a decimal string with four fractional digits),
+`currency`, `stage`, `expected_close_date`, `lost_reason`,
+`assignee_user_id` (null on creation), `created_at`, and `updated_at`.
+Invalid input returns 400, invalid sessions return 401, cross-origin writes
+return 403, and a missing or mismatched account header returns 412. Missing,
+archived, or inaccessible companies and teams, and missing or out-of-company
+contacts, all return 404. Unexpected database failures return a generic 500.
+
+Run `go test -count=1 -run TestCreateDealInPostgres ./...` from `backend/`
+with the local PostgreSQL settings and `DEALFORGE_COMPANY_INTEGRATION=1`.
+
 Chi routes HTTP requests, and pgx provides the PostgreSQL driver for the Go code
 that sqlc generates. Vite serves and builds the React UI, TypeScript checks its
 types, and Playwright checks that the page renders in Chromium.
